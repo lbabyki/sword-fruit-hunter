@@ -1,0 +1,56 @@
+# Sword Fruit – Word Hunter (Vite + React + TypeScript + Phaser + MediaPipe)
+
+# Dependencies
+node_modules/
+
+# Production builds and previews
+dist/
+build/
+coverage/
+.vite/
+.cache/
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# MediaPipe WASM assets are copied from node_modules by
+# scripts/sync-mediapipe-assets.mjs during npm install/dev/build.
+# Keep the script tracked, not its generated outputs.
+public/mediapipe/wasm/
+
+# Local environment files and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Logs and runtime artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Temporary files
+.tmp/
+tmp/
+temp/
+*.tmp
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor-specific settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Local test artifacts
+playwright-report/
+test-results/

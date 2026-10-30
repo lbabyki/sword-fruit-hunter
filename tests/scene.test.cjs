@@ -196,3 +196,10 @@ test('zero allowed bombs loses at first explosion, disabled loss rule does not',
   s.startGame(false,{bombGameOver:false,bombLimit:0});s.addFruit('bomb','');s.slice(s.fruit.find(f=>f.kind==='bomb'));
   assert.equal(s.phase,'playing');assert.equal(failures.length,1);
 });
+
+test('Sword Fruit still follows index target during two-finger Dash pose without enabling a skill',()=>{
+ const {scene}=setup();
+ scene.bridge.getSignal=()=>({kind:'dash',source:'index',direction:{x:-1,y:0},target:{x:1100,y:400},confidence:.9});
+ for(let i=0;i<20;i++)scene.update(0,16);
+ assert.ok(scene.sword.x>600,'two-finger gesture should not freeze sword aiming');
+});

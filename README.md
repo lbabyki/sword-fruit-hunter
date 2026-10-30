@@ -114,7 +114,7 @@ Tự động copy WASM chỉ giải quyết lỗi loader 404. Việc cấp quy�
 | Bom | 0 / 1 / 2 bom được spawn ở ba chặng |
 | Vật thể đồng thời | Không quá 4 |
 | Thời gian vật thể | 4,75–5,8 giây |
-| Camera aim | Định vị 1 hoặc 2 đầu ngón; +27% vector từ MCP → TIP; crop 10% X/9% Y; gắn reticle |
+| Camera aim | Định vị riêng đầu ngón trỏ; +20% vector từ MCP → TIP; crop 10% X/9% Y; gắn reticle |
 | Xòe 5 ngón | Giữ 420ms sau khi xác nhận pose, giải phóng 240ms trước khi kích hoạt lại; khoảng cách 900ms giữa hai lần |
 | Kiếm | V tối đa 520px/s, gia tốc 2600px/s², hãm 3300px/s² |
 | Vận tốc tối thiểu chém | 130px/s |
@@ -131,7 +131,7 @@ Tự động copy WASM chỉ giải quyết lỗi loader 404. Việc cấp quy�
 - `src/game/settings.ts`: định dạng, kiểm tra, lưu tham số và xử lý thu thập chữ tự do.
 - `src/game/rules.ts`: luật, tính điểm, xếp hạng, sinh quỹ đạo, hình học va chạm và vật lý kiếm (có unit tests).
 - `src/game/SwordFruitScene.ts`: scene Phaser, vòng đời quả/bom, chém, vẽ hoạt ảnh và chu kỳ ba từ.
-- `src/tracking/gestures.ts`: nhận diện 1 hoặc 2 ngón hợp lệ; chiếu điểm ngắm từ đầu ngón + hướng, lọc thích ứng, chống lặp kích hoạt xòe năm ngón.
+- `src/tracking/gestures.ts`: chỉ sử dụng ngón trỏ để ngắm; phân biệt trỏ + giữa để Dash; chiếu điểm ngắm từ đầu ngón trỏ + hướng, lọc thích ứng, chống lặp kích hoạt xòe năm ngón.
 - `src/tracking/useHandTracking.ts`: webcam hook, worker/fallback, xử lý frame mới nhất, canvas skeleton, phát tín hiệu điều khiển trực tiếp và giới hạn React rerender.
 - `src/tracking/handWorker.ts`: Web Worker chạy MediaPipe inference ngoài main thread khi khả dụng.
 - `src/game/storage.ts`: lưu kết quả localStorage.
@@ -211,7 +211,7 @@ Mở **SPACE DODGE → CÀI ĐẶT**. Các tab gồm: Luật chơi, Thiên thạ
 - Phi thuyền: tốc độ, gia tốc, hãm, hitbox và xoay theo vận tốc.
 - Sao: bật/tắt, điểm mỗi sao, tần suất, số lượng, tốc độ, combo +25 mỗi bậc, sao đặc biệt, Risk Star.
 - Shield: vật phẩm khiên tự xuất hiện không thường xuyên, chặn một lần va chạm; không cộng dồn nhiều khiên.
-- Dash: khi đã bật trong Settings, **duỗi riêng ngón út** khoảng 120ms để lao theo điểm ngắm/hướng trước đó. Không lặp trong một lần giơ tay. Dash dài 0,22 giây, cooldown mặc định 3 giây; ở chế độ bàn phím dùng **Shift**.
+- Dash: khi đã bật trong Settings, **giơ thêm ngón giữa cùng ngón trỏ** khoảng 120ms để lao theo điểm ngắm ngón trỏ/hướng trước đó. Không lặp trong một lần giơ tay. Dash dài 0,22 giây, cooldown mặc định 3 giây; ở chế độ bàn phím dùng **Shift**.
 - Near Miss: thưởng +20 khi né sát thiên thạch một lần; Meteor Wave: tăng mật độ khoảng 20–26 giây trong mỗi chu kỳ 30 giây.
 - Điều khiển AI: độ nhạy, hiệu chuẩn hai điểm bằng webcam; chỉ là ánh xạ 2D, KHÔNG phải suy ra tia nhìn 3D chính xác.
 - Hiệu ứng: âm lượng riêng Space Dodge (bật/tắt âm thanh dùng chung), rung, vệt động cơ/thiên thạch, hiển thị cảnh báo sát cạnh phải và giảm chuyển động.
@@ -225,4 +225,18 @@ Mở **SPACE DODGE → CÀI ĐẶT**. Các tab gồm: Luật chơi, Thiên thạ
 
 ### Kiểm thử
 
-Chạy `npm install`, `npm test`, `npm run build`, `npm run dev`. Trong môi trường tạo mã, 103 bài kiểm thử logic đạt; chưa xác minh build Vite đầy đủ do không tải được dependencies từ npm registry. Cần QA trực tiếp với webcam để hiệu chỉnh pose ngón út, tốc độ phản hồi và khả năng né ở thiết lập cao.
+Chạy `npm install`, `npm test`, `npm run build`, `npm run dev`. Trong môi trường tạo mã, 103 bài kiểm thử logic đạt; chưa xác minh build Vite đầy đủ do không tải được dependencies từ npm registry. Cần QA trực tiếp với webcam để hiệu chỉnh pose ngón trỏ + ngón giữa, tốc độ phản hồi và khả năng né ở thiết lập cao.
+
+
+## V2.3 – Đơn giản hóa nhận diện tay (cập nhật mới nhất)
+
+**Quy tắc V2.3 thay thế hướng dẫn cử chỉ trong các phần V1.2–V2.2 ở trên.** Không có bước fine-tune/training lại MediaPipe: phiên bản trước chỉ thêm điều kiện phân loại landmark, gây xung đột khi nhận diện tư thế.
+
+- **Ngón trỏ** (landmark 5–8): điểm ngắm duy nhất cho cả kiếm và phi thuyền, không dùng vị trí ngón giữa làm mục tiêu.
+- **Ngón trỏ + ngón giữa** (landmark 9–12): giữ điểm ngắm của ngón trỏ, kích hoạt Dash khi ở Space Dodge, đã bật kỹ năng và giữ đủ 120 ms; không lặp khi chưa thả pose.
+- **Ngón giữa đứng riêng, ngón út riêng**: không điều khiển và không kích hoạt Dash.
+- **Xòe năm ngón**: bắt đầu / tiếp tục / chơi lại; **nắm tay**: hãm.
+- Nhận diện ưu tiên khớp 3D `worldLandmarks` khi có để kiểm tra ngón trỏ/góc co duỗi khi tay hướng vào camera. Vẫn dùng vị trí đầu ngón trỏ từ khung hình 2D cho điểm ngắm.
+- Bộ lọc mục tiêu vẫn giữ tính liên tục khi đổi pose trỏ → trỏ + giữa. Thời gian giữ Dash dựa trên timestamp của **các kết quả camera mới**, không đếm lặp 60 FPS render thành thời gian giữ.
+- **Không bảo đảm đúng tất cả góc nhìn bằng một webcam 2D**, đặc biệt khi ngón trỏ bị che hoặc chỉ hoàn toàn vào ống kính. Đây là hạn chế đầu vào/landmark cần QA thực tế.
+- Chạy: `npm install`, `npm test`, `npm run build`, `npm run dev`. Model & asset WASM cần tải/cài thành công trước khi QA.

@@ -45,9 +45,9 @@ test('star combo adds a flat 25 for consecutive collected stars',()=>{
  object(scene,'star');scene.update(16,16);
  assert.equal(scene.stars,2);assert.equal(scene.score,225);assert.equal(scene.starCombo,2);
 });
-test('pinky held for 120ms triggers a single dash, cooldown blocks repeat',()=>{
+test('index + middle held for 120ms triggers a single dash, cooldown blocks repeat',()=>{
  const {scene}=setup({dashEnabled:true,dashCooldown:3});
- scene.bridge.getMode=()=> 'camera';scene.lastAim={x:850,y:360};scene.bridge.getSignal=()=>({kind:'pinky',direction:{x:0,y:0},confidence:1});
+ scene.bridge.getMode=()=> 'camera';scene.lastAim={x:850,y:360};scene.bridge.getSignal=()=>({kind:'dash',direction:{x:1,y:0},target:{x:850,y:360},confidence:1});
  for(let i=0;i<12;i++)scene.update(i*16,16);
  assert.equal(scene.dashUses,1);assert.ok(scene.dashCooldown>2.5);assert.ok(scene.ship.x>300);
  for(let i=0;i<20;i++)scene.update(200+i*16,16);
@@ -63,4 +63,29 @@ test('special risk star scoring respects configured base points',()=>{
  const {scene}=setup({starPoints:200,specialStars:true,riskStars:true});
  const star=object(scene,'star');star.special=true;star.risk=true;scene.update(0,16);
  assert.equal(scene.score,1000);
+});
+
+test('Dash uses actual new inference timestamps, not repeated 60-FPS render frames',()=>{
+ const {scene}=setup({dashEnabled:true,dashCooldown:3});
+ scene.bridge.getMode=()=> 'camera';
+ let observedAtMs=1000;
+ scene.bridge.getSignal=()=>({kind:'dash',direction:{x:1,y:0},target:{x:900,y:360},confidence:.9,observedAtMs});
+ for(let i=0;i<12;i++)scene.update(i*16,16);
+ assert.equal(scene.dashUses,0,'a single camera result must not count as 120ms hold');
+ observedAtMs=1060;scene.update(195,16);
+ assert.equal(scene.dashUses,0);
+ observedAtMs=1130;scene.update(211,16);
+ assert.equal(scene.dashUses,1);
+ for(let i=0;i<15;i++)scene.update(220+i*16,16);
+ assert.equal(scene.dashUses,1,'holding one pose cannot re-fire Dash');
+});
+test('Space Dodge index-point control remains active, and pinky cannot activate Dash',()=>{
+ const {scene}=setup({dashEnabled:true});
+ scene.bridge.getMode=()=> 'camera';
+ scene.bridge.getSignal=()=>({kind:'point',source:'index',direction:{x:0,y:1},target:{x:800,y:420},confidence:1});
+ for(let i=0;i<25;i++)scene.update(i*16,16);
+ assert.ok(scene.ship.x>300,'ship must follow index fingertip');
+ scene.bridge.getSignal=()=>({kind:'invalid',direction:{x:0,y:0},confidence:0});
+ for(let i=0;i<12;i++)scene.update(500+i*16,16);
+ assert.equal(scene.dashUses,0);
 });

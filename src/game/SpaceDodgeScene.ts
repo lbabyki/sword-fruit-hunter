@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {GAME_WIDTH as W,GAME_HEIGHT as H,length,normalize,updateSwordMotion,type Vector} from './rules.ts';
 import {SPACE_DEFAULTS,normalizeSpaceSettings,spaceSettingsKey,spaceDifficulty,meteorTrajectory,sweptCircleCollision,boundShipTarget,safeMeteorSpawn,steerShip,seededSpaceRandom,type SpaceSettings,type SpaceObject,type SpaceStatus,type SpaceScore,type SpacePhase,type MeteorVariant} from './spaceRules.ts';
-import {PinkyDashTrigger} from '../tracking/gestures.ts';
+import {TwoFingerDashTrigger} from '../tracking/gestures.ts';
 import type {GameBridge} from './types.ts';
 type SpaceBridge=Pick<GameBridge,'getSignal'|'getMode'|'getPlayer'|'playSound'> & {onSpaceStatus:(status:SpaceStatus)=>void;onSpaceFinish:(result:SpaceScore)=>void};
 type Keys=Record<string,Phaser.Input.Keyboard.Key>;
@@ -16,7 +16,7 @@ export class SpaceDodgeScene extends Phaser.Scene {
  private immunity=0;private starCombo=0;private lastStarAt=-Infinity;private nearMisses=0;private dashUses=0;
  private shield=0;private shieldCountdown=18;
  private dashLeft=0;private dashCooldown=0;private dashDirection:Vector={x:0,y:0};private lastAim:Vector|null=null;
- private pinky=new PinkyDashTrigger();private shiftHeld=false;
+ private twoFingerDash=new TwoFingerDashTrigger();private lastDashFrame:number|null=null;private shiftHeld=false;
  private meteorsLeft=0;private starsLeft=0;private telemetry=0;private trail:Vector[]=[];
  private lostSince:number|null=null;private interruption=false;
  private competition=false;private hint='Nhấn BẮT ĐẦU hoặc xòe 5 ngón';
@@ -39,12 +39,12 @@ export class SpaceDodgeScene extends Phaser.Scene {
   this.phase='playing';this.ship={x:W*.25,y:H/2};this.priorShip={...this.ship};this.velocity={x:0,y:0};this.objects=[];
   this.id=1;this.lives=this.settings.lives;this.stars=0;this.score=0;this.survival=0;this.immunity=0;
   this.starCombo=0;this.lastStarAt=-Infinity;this.nearMisses=0;this.dashUses=0;this.shield=0;this.shieldCountdown=18;
-  this.dashLeft=0;this.dashCooldown=0;this.lastAim=null;this.pinky.reset();this.shiftHeld=false;
+  this.dashLeft=0;this.dashCooldown=0;this.lastAim=null;this.twoFingerDash.reset();this.lastDashFrame=null;this.shiftHeld=false;
   this.meteorsLeft=1.3;this.starsLeft=2.6;this.telemetry=0;this.trail=[];this.lostSince=null;this.interruption=false;
   this.hint=this.settings.mode==='endless'?'Né thiên thạch, thu thập sao!':'Thu thập sao để đạt điểm mục tiêu!';this.publish();
  }
  pauseGame(){if(this.phase==='playing'){this.phase='paused';this.hint='Tạm dừng';this.publish();}}
- resumeGame(){if(this.phase==='paused'){this.phase='playing';this.lostSince=null;this.pinky.reset();this.hint='Tiếp tục';this.publish();}}
+ resumeGame(){if(this.phase==='paused'){this.phase='playing';this.lostSince=null;this.twoFingerDash.reset();this.lastDashFrame=null;this.hint='Tiếp tục';this.publish();}}
  private keyControl(){const down=(...names:string[])=>names.some(n=>this.keys[n]?.isDown);const dx=Number(down('D','RIGHT'))-Number(down('A','LEFT'));const dy=Number(down('S','DOWN'))-Number(down('W','UP'));return {dir:normalize({x:dx,y:dy}),brake:down('SPACE')||(!dx&&!dy),dash:down('SHIFT')};}
  private beginDash(dir:Vector){
   if(!this.settings.dashEnabled||this.dashCooldown>0||this.dashLeft>0||length(dir)<.25)return false;
@@ -63,8 +63,19 @@ export class SpaceDodgeScene extends Phaser.Scene {
   this.priorShip={...this.ship};
   const keyInput=camera?null:this.keyControl();
   if(camera){
-   const raised=this.pinky.update(sig?.kind??'lost',this.survival*1000);
-   if(raised){const dir=this.lastAim?{x:this.lastAim.x-this.ship.x,y:this.lastAim.y-this.ship.y}:this.velocity;this.beginDash(dir);}
+   // A classification can be repeated by 60-FPS Phaser while inference runs at
+   // 20-30 FPS. Do not count repeated rendering as additional gesture samples.
+   const stamp=sig?.observedAtMs;
+   const fresh=stamp===undefined||stamp!==this.lastDashFrame;
+   if(fresh){
+    this.lastDashFrame=stamp??null;
+    const raised=this.twoFingerDash.update(sig?.kind??'lost',stamp??this.survival*1000);
+    if(raised){
+     const aim=sig?.target?boundShipTarget({x:W/2+(sig.target.x-W/2)*this.settings.aimSensitivity,y:H/2+(sig.target.y-H/2)*this.settings.aimSensitivity}):this.lastAim;
+     const dir=aim?{x:aim.x-this.ship.x,y:aim.y-this.ship.y}:this.velocity;
+     this.beginDash(dir);
+    }
+   }
   }else{
    if(keyInput!.dash&&!this.shiftHeld){this.beginDash(length(keyInput!.dir)>.1?keyInput!.dir:length(this.velocity)>.1?this.velocity:{x:1,y:0});}
    this.shiftHeld=keyInput!.dash;
@@ -76,7 +87,7 @@ export class SpaceDodgeScene extends Phaser.Scene {
    const wanted={x:this.ship.x+this.velocity.x*dt,y:this.ship.y+this.velocity.y*dt};this.ship=boundShipTarget(wanted);
    if(this.ship.x!==wanted.x||this.ship.y!==wanted.y)this.dashLeft=0;
   }else if(camera){
-   if(sig?.kind==='point'&&sig.target){
+   if((sig?.kind==='point'||sig?.kind==='dash')&&sig.target){
     const target=boundShipTarget({x:W/2+(sig.target.x-W/2)*this.settings.aimSensitivity,y:H/2+(sig.target.y-H/2)*this.settings.aimSensitivity});
     this.lastAim=target;const next=steerShip(this.ship,this.velocity,target,dt,this.settings);this.ship=next.position;this.velocity=next.velocity;
    }else{const next=updateSwordMotion(this.ship,this.velocity,{x:0,y:0},true,dt,this.settings.shipSpeed*this.settings.shipBrake);this.ship=next.position;this.velocity=next.velocity;}
@@ -205,7 +216,7 @@ export class SpaceDodgeScene extends Phaser.Scene {
    for(const o of this.objects){if(o.kind!=='meteor'||o.pos.x<=W*.82||o.pos.x>=W+75)continue;const cy=Math.max(45,Math.min(H-45,o.pos.y));g.fillStyle(0xF6BB69,.86);g.fillTriangle(W-50,cy,W-25,cy-12,W-25,cy+12);}
   }
   if(this.bridge.getMode()==='camera'){
-   const sig=this.bridge.getSignal();if(sig.kind==='point'&&sig.target){const pt=boundShipTarget({x:W/2+(sig.target.x-W/2)*this.settings.aimSensitivity,y:H/2+(sig.target.y-H/2)*this.settings.aimSensitivity});g.lineStyle(2,0x54EFC0,.65);g.strokeCircle(pt.x,pt.y,16);g.lineStyle(1,0x55F3CD,.18);g.lineBetween(this.ship.x,this.ship.y,pt.x,pt.y);}
+   const sig=this.bridge.getSignal();if((sig.kind==='point'||sig.kind==='dash')&&sig.target){const pt=boundShipTarget({x:W/2+(sig.target.x-W/2)*this.settings.aimSensitivity,y:H/2+(sig.target.y-H/2)*this.settings.aimSensitivity});g.lineStyle(2,0x54EFC0,.65);g.strokeCircle(pt.x,pt.y,16);g.lineStyle(1,0x55F3CD,.18);g.lineBetween(this.ship.x,this.ship.y,pt.x,pt.y);}
   }
   if(this.immunity===0||Math.floor(this.immunity*11)%2===0){
    const a=this.settings.autoRotate&&length(this.velocity)>15?Math.atan2(this.velocity.y,this.velocity.x):0;

@@ -3,7 +3,7 @@ import {FilesetResolver,HandLandmarker} from '@mediapipe/tasks-vision';
 import type {HandPoint} from './gestures.ts';
 
 type Input={type:'init';wasm:string;model:string}|{type:'frame';frame:ImageBitmap;timestamp:number};
-type Output={type:'ready'}|{type:'result';points:HandPoint[]|null;timestamp:number;inferenceMs:number}|{type:'error';message:string};
+type Output={type:'ready'}|{type:'result';points:HandPoint[]|null;worldPoints:HandPoint[]|null;timestamp:number;inferenceMs:number}|{type:'error';message:string};
 const channel=self as unknown as {onmessage:((event:MessageEvent<Input>)=>void)|null;postMessage:(value:Output)=>void};
 let landmarker:HandLandmarker|null=null;
 let lastTimestamp=-1;
@@ -26,7 +26,8 @@ channel.onmessage=async event=>{
     const start=performance.now();
     const result=landmarker.detectForVideo(msg.frame,msg.timestamp);
     const points=result.landmarks?.[0]??null;
-    channel.postMessage({type:'result',points:points?.map(p=>({x:p.x,y:p.y,z:p.z}))??null,timestamp:msg.timestamp,inferenceMs:performance.now()-start});
+    const worldPoints=result.worldLandmarks?.[0]??null;
+    channel.postMessage({type:'result',points:points?.map(p=>({x:p.x,y:p.y,z:p.z}))??null,worldPoints:worldPoints?.map(p=>({x:p.x,y:p.y,z:p.z}))??null,timestamp:msg.timestamp,inferenceMs:performance.now()-start});
   }catch(error){channel.postMessage({type:'error',message:error instanceof Error?error.message:String(error)});}
   finally{msg.frame.close();}
 };

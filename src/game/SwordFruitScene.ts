@@ -115,7 +115,7 @@ export class SwordFruitScene extends Phaser.Scene {
   private getInput():{direction:Vector;brake:boolean;target?:Vector} {
     if(this.bridge.getMode()==='keyboard')return this.getKeyInput();
     const signal=this.bridge.getSignal();
-    if(signal.kind==='point'&&signal.target)return {direction:signal.direction,brake:false,target:signal.target};
+    if((signal.kind==='point'||signal.kind==='dash')&&signal.target)return {direction:signal.direction,brake:false,target:signal.target};
     return {direction:{x:0,y:0},brake:true};
   }
   update(_time:number,deltaMs:number) {
@@ -349,11 +349,11 @@ export class SwordFruitScene extends Phaser.Scene {
         g.fillStyle(0x347A62,1);g.fillEllipse(x+1,y-47,19,10);g.lineStyle(3,0x3C5D50,.85);g.lineBetween(x,y-42,x+5,y-52);
       }
     }
-    // Aim reticle previews where the two fingertips are pointing, while the
+    // Aim reticle previews where the index fingertip is pointing, while the
     // actual sword moves toward this location with acceleration and inertia.
     if(this.bridge.getMode()==='camera' && (this.phase==='playing'||this.phase==='idle'||this.phase==='paused')){
       const signal=this.bridge.getSignal();
-      if(signal.kind==='point'&&signal.target){
+      if((signal.kind==='point'||signal.kind==='dash')&&signal.target){
         const {x,y}=signal.target;
         g.lineStyle(2,0x66F5C1,.85);g.strokeCircle(x,y,18);
         g.lineStyle(1,0xA8FFE4,.55);
@@ -363,7 +363,7 @@ export class SwordFruitScene extends Phaser.Scene {
       }
     }
     this.drawSword(g);
-    if(this.phase==='idle') this.drawCenterMessage('SWORD FRUIT',this.bridge.getMode()==='camera'?'Xòe đủ 5 ngón để bắt đầu • Hai ngón ngắm đích':'Nhấn BẮT ĐẦU • WASD / mũi tên để điều khiển',g);
+    if(this.phase==='idle') this.drawCenterMessage('SWORD FRUIT',this.bridge.getMode()==='camera'?'Xòe đủ 5 ngón để bắt đầu • Ngón trỏ nhắm đích':'Nhấn BẮT ĐẦU • WASD / mũi tên để điều khiển',g);
     if(this.phase==='paused') this.drawCenterMessage('TẠM DỪNG',this.bridge.getMode()==='camera'?'Xòe đủ 5 ngón để tiếp tục':'Nhấn nút TIẾP TỤC',g);
     if(this.phase==='between') this.drawCenterMessage('HOÀN THÀNH TỪ!',`+${STAGE_BONUSES[[3,5,7].indexOf(this.currentWord.length)]??100} điểm thưởng`,g);
     if(this.phase==='failed') this.drawCenterMessage('GAME OVER',`Vượt giới hạn ${this.settings.bombLimit} bom • Xòe tay hoặc nhấn chơi lại`,g);

@@ -23,18 +23,19 @@ function openHand(){
   p[1]=xy(.30,.71);p[2]=xy(.24,.63);p[3]=xy(.18,.55);p[4]=xy(.11,.47);
   return p;
 }
-test('both fingertips are fused into one reticle',()=>{
+test('index + middle issues dash but reticle stays exclusively on index tip',()=>{
   const s=classifyHand(hand());
-  assert.equal(s.kind,'point');assert.equal(s.source,'dual');assert.ok(s.target);
+  assert.equal(s.kind,'dash');assert.equal(s.source,'index');assert.ok(s.target);
+  const only=classifyHand(hand('index'));assert.deepEqual(s.target,only.target);
   assert.ok(s.direction.x<0,'mirrored x should point left');
 });
 test('index-only finger remains valid when the middle finger is folded/occluded',()=>{
   const s=classifyHand(hand('index'));
   assert.equal(s.kind,'point');assert.equal(s.source,'index');assert.ok(s.target);
 });
-test('middle-only finger remains valid if index finger cannot be resolved',()=>{
+test('middle-only finger never steers the sword or spaceship',()=>{
   const s=classifyHand(hand('middle'));
-  assert.equal(s.kind,'point');assert.equal(s.source,'middle');assert.ok(s.target);
+  assert.equal(s.kind,'invalid');assert.equal(s.target,undefined);
 });
 test('partially occluded knuckles can still use a clearly separated index fingertip',()=>{
   const p=hand('index');
@@ -106,11 +107,12 @@ test('open palm activates exactly once per deliberate hold and release',()=>{
   assert.equal(gate.update('open',2730),true);
 });
 
-test('overlapping fingertips remain a valid dual-finger aim',()=>{
+test('overlapping fingertips keep index as only aim origin',()=>{
   const p=hand('dual');
   p[12]={...p[8],x:p[8].x+.004,y:p[8].y+.008};
   const result=classifyHand(p);
-  assert.equal(result.kind,'point');
+  assert.equal(result.kind,'dash');
+  assert.equal(result.source,'index');
   assert.ok(result.target);
 });
 test('side-looking hand still accepts extended index when one folded finger looks straight',()=>{
@@ -151,33 +153,56 @@ test('dominant protruding fingertip remains valid when projected joints flatten 
   p[6]=xy(.44,.63);p[7]=xy(.46,.635);p[8]=xy(.61,.635); // almost horizontal, foreshortened chain
   p[10]=xy(.40,.645);p[11]=xy(.405,.648);p[12]=xy(.445,.651); // middle mostly folded / hidden
   const result=classifyHand(p);
-  assert.equal(result.kind,'point');
+  assert.ok(['point','dash'].includes(result.kind));
   assert.equal(result.source,'index');
   assert.ok(result.target);
 });
 
-test('near-camera dual fingertips still resolve to a pointing pose even when angle tests collapse',()=>{
+test('near-camera dual fingertips keep aiming from index without losing control',()=>{
   const p=hand('dual');
   p[6]=xy(.42,.64);p[7]=xy(.45,.645);p[8]=xy(.59,.642);
   p[10]=xy(.455,.643);p[11]=xy(.485,.647);p[12]=xy(.62,.647);
   const result=classifyHand(p);
-  assert.equal(result.kind,'point');
-  assert.ok(result.source==='index' || result.source==='middle' || result.source==='dual');
+  assert.ok(['point','dash'].includes(result.kind));
+  assert.equal(result.source,'index');
 });
 
-test('isolated extended pinky triggers dash, not fist',()=>{
+test('pinky-only does not activate Dash',()=>{
  const p=hand('fist');
  p[17]=xy(.47,.65);p[18]=xy(.50,.58);p[19]=xy(.53,.47);p[20]=xy(.57,.31);
- assert.equal(classifyHand(p).kind,'pinky');
+ assert.notEqual(classifyHand(p).kind,'dash');
 });
-test('extended index and little finger together do not activate dash',()=>{
+test('index + pinky without middle does not activate Dash',()=>{
  const p=hand('index');p[17]=xy(.47,.65);p[18]=xy(.50,.58);p[19]=xy(.53,.47);p[20]=xy(.57,.31);
- assert.notEqual(classifyHand(p).kind,'pinky');
+ assert.notEqual(classifyHand(p).kind,'dash');
 });
-test('pinky trigger needs a hold and release before reactivation',async()=>{
- const {PinkyDashTrigger}=await import('../src/tracking/gestures.ts');
- const g=new PinkyDashTrigger();
- assert.equal(g.update('pinky',0),false);assert.equal(g.update('pinky',119),false);assert.equal(g.update('pinky',120),true);
- assert.equal(g.update('pinky',400),false);g.update('point',420);g.update('point',580);
- assert.equal(g.update('pinky',600),false);assert.equal(g.update('pinky',721),true);
+test('two-finger Dash gate requires hold and release',async()=>{
+ const {TwoFingerDashTrigger}=await import('../src/tracking/gestures.ts');
+ const gate=new TwoFingerDashTrigger();
+ assert.equal(gate.update('dash',0),false);assert.equal(gate.update('dash',119),false);assert.equal(gate.update('dash',120),true);
+ assert.equal(gate.update('dash',400),false);gate.update('point',420);gate.update('point',580);
+ assert.equal(gate.update('dash',600),false);assert.equal(gate.update('dash',721),true);
+});
+test('switching from index to two-finger Dash keeps smoothed aim active',()=>{
+ const smoother=new GestureSmoother();
+ const index=smoother.update(classifyHand(hand('index')),1000);
+ const dash=smoother.update(classifyHand(hand('dual')),1033);
+ assert.equal(index.kind,'point');assert.equal(dash.kind,'dash');
+ assert.ok(dash.target);assert.ok(Math.abs(index.target.x-dash.target.x)<1);
+});
+test('index-only pointer is valid in eight 2D directions',()=>{
+ for(let k=0;k<8;k++){
+  const a=k*Math.PI/4;const p=hand('index',{x:0,y:0},{x:.23*Math.cos(a),y:.23*Math.sin(a)});
+  const signal=classifyHand(p);
+  assert.equal(signal.kind,'point',`angle ${k}`);assert.equal(signal.source,'index');assert.ok(signal.target);
+ }
+});
+test('valid 3D joints recover front-facing index when 2D joints collapse',()=>{
+ const p=hand('fist');
+ p[8]=xy(.365,.648);p[6]=xy(.36,.651);p[7]=xy(.363,.65);
+ const w=p.map(v=>({...v,z:0}));
+ w[5]={x:.35,y:.65,z:0};w[6]={x:.35,y:.65,z:-.1};w[7]={x:.35,y:.65,z:-.2};w[8]={x:.35,y:.65,z:-.3};
+ assert.equal(classifyHand(p).kind!=='point',true);
+ const signal=classifyHand(p,640,480,true,w);
+ assert.equal(signal.kind,'point');assert.ok(signal.target);
 });

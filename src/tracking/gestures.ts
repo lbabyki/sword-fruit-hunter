@@ -1,13 +1,13 @@
 import {clamp, length, normalize, GAME_WIDTH, GAME_HEIGHT, type Vector} from '../game/rules.ts';
 
 export type HandPoint = {x:number;y:number;z?:number};
-export type GestureKind = 'point'|'open'|'fist'|'pinky'|'invalid'|'lost';
-export type GestureSignal = {kind:GestureKind;direction:Vector;confidence:number;target?:Vector;source?:'index'|'middle'|'dual';latencyMs?:number};
+export type GestureKind = 'point'|'dash'|'open'|'fist'|'invalid'|'lost';
+export type GestureSignal = {kind:GestureKind;direction:Vector;confidence:number;target?:Vector;source?:'index';latencyMs?:number;observedAtMs?:number};
 const ZERO:Vector={x:0,y:0};
 const DEADZONE=55;
 // These are intentionally separate so device-specific calibration can be added later.
 const VIEW_CROP_X=.10, VIEW_CROP_Y=.09, VIEW_SPAN_X=.80, VIEW_SPAN_Y=.82;
-const RAY_GAIN=.27;
+const RAY_GAIN=.20; // Lower projection gain reduces swings when the finger turns edge-on.
 const vec=(a:Vector,b:Vector):Vector=>({x:a.x-b.x,y:a.y-b.y});
 function projected(point:HandPoint,w:number,h:number):Vector {return {x:point.x*w,y:point.y*h};}
 function angle(a:Vector,b:Vector,c:Vector) {
@@ -32,116 +32,87 @@ export function pointingTarget(tip:Vector,base:Vector,frameW:number,frameH:numbe
 }
 
 type Candidate={tip:Vector;base:Vector;direction:Vector;quality:number;name:'index'|'middle'};
-function pointingCandidate(p:Vector[],mcp:number,pip:number,dip:number,tip:number,name:'index'|'middle',palm:number,frameH:number):Candidate|null {
-  const straight=fingerAngle(p,mcp,pip,tip);
-  const distalStraight=angle(p[pip],p[dip],p[tip]);
-  const reach=length(vec(p[tip],p[mcp]));
-  const knuckleLength=length(vec(p[pip],p[mcp]));
-  // For edge-on fingers, MCP/PIP/DIP may overlap; use the one visible extended
-  // finger. Reject 2-D projections too short to determine a reliable direction.
-  const strong=straight>=141 && distalStraight>=131;
-  // Oblique / nearly overlapping fingers in the additional 38 reference photos
-  // can collapse PIP/DIP on the 2-D projection. Accept one clearly protruding
-  // fingertip even when a strict "two straight fingers" test is not satisfied.
-  const reachGate=Math.max(frameH*.048,knuckleLength*1.14,palm*.50);
-  const foreshortened=reach>=Math.max(frameH*.13,palm*1.27);
-  const weak=reach>=reachGate && (straight>=96||distalStraight>=112||foreshortened);
-  if(reach<Math.max(frameH*.025,knuckleLength*.96,palm*.27)||(!strong&&!weak))return null;
-  const direction=normalize(vec(p[tip],p[mcp]));
-  if(length(direction)<.5)return null;
-  const projectionQuality=clamp(reach/Math.max(1,palm*1.25),.25,1);
-  const quality=strong?clamp(.58+(straight-141)/170+(distalStraight-131)/260,0,1)
-    :clamp(.28+projectionQuality*.21+Math.max(0,straight-96)/320,.25,.57);
-  return {tip:p[tip],base:p[mcp],direction,quality,name};
+// World landmarks are supplied by MediaPipe when available. Their 3-D joint
+// angles remain meaningful when a finger points almost directly at the webcam.
+function worldAngle(world:readonly HandPoint[]|undefined, mcp:number,pip:number,tip:number):number|null {
+  if(!world||world.length<21)return null;
+  const a=world[mcp],b=world[pip],c=world[tip];
+  if(![a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z].every(v=>typeof v==='number'&&Number.isFinite(v)))return null;
+  const u={x:a.x-b.x,y:a.y-b.y,z:(a.z??0)-(b.z??0)};
+  const v={x:c.x-b.x,y:c.y-b.y,z:(c.z??0)-(b.z??0)};
+  const dot=u.x*v.x+u.y*v.y+u.z*v.z;
+  const denom=Math.hypot(u.x,u.y,u.z)*Math.hypot(v.x,v.y,v.z);
+  return denom>1e-6?Math.acos(clamp(dot/denom,-1,1))*180/Math.PI:null;
+}
+function extensionScore(p:Vector[],mcp:number,pip:number,dip:number,tip:number,world?:readonly HandPoint[]):number {
+  const first=worldAngle(world,mcp,pip,tip)??fingerAngle(p,mcp,pip,tip);
+  const last=worldAngle(world,pip,dip,tip)??angle(p[pip],p[dip],p[tip]);
+  return Math.min(first,last);
+}
+function indexCandidate(p:Vector[], palm:number,frameH:number,world?:readonly HandPoint[]):Candidate|null {
+  const tip=p[8],base=p[5];
+  const reach=length(vec(tip,base));
+  const knuckle=length(vec(p[6],base));
+  const straight=extensionScore(p,5,6,7,8,world);
+  const strong=straight>=138;
+  const extendedWorld=(worldAngle(world,5,6,8)??0)>=148 && (worldAngle(world,6,7,8)??0)>=135;
+  const visiblyForward=reach>=Math.max(frameH*.060,palm*.66,knuckle*1.12);
+  const protrudes=reach>=Math.max(frameH*.108,palm*1.22);
+  const oblique=visiblyForward && (straight>=100||protrudes);
+  // A true camera-facing finger can have a tiny 2-D projection. Only accept
+  // this as extended with explicit 3-D evidence; never infer a fake 2-D ray.
+  const worldFallback=extendedWorld && reach>=Math.max(frameH*.018,palm*.10);
+  if(!(strong&&reach>=Math.max(frameH*.030,palm*.30))&&!oblique&&!worldFallback)return null;
+  const delta=vec(tip,base);
+  const direction=normalize(delta);
+  const quality=clamp((strong?.68:.32)+(extendedWorld?.12:0)+Math.min(.15,reach/(palm*8)),.3,.95);
+  return {tip,base:reach<frameH*.038?tip:base,direction,quality,name:'index'};
+}
+function middleRaised(p:Vector[],palm:number,frameH:number,world?:readonly HandPoint[]):boolean {
+  const reach=length(vec(p[12],p[9]));
+  const score=extensionScore(p,9,10,11,12,world);
+  const worldExtended=(worldAngle(world,9,10,12)??0)>150 && (worldAngle(world,10,11,12)??0)>138;
+  return (score>=142 && reach>=Math.max(frameH*.07,palm*.76))
+    || (score>=108 && reach>=Math.max(frameH*.09,palm*.90))
+    || (worldExtended && reach>=Math.max(frameH*.018,palm*.15));
+}
+function otherFingersOpen(p:Vector[],world?:readonly HandPoint[]):boolean {
+  const ring=(worldAngle(world,13,14,16)??fingerAngle(p,13,14,16))>153;
+  const pinky=(worldAngle(world,17,18,20)??fingerAngle(p,17,18,20))>153;
+  return ring&&pinky;
 }
 
-function dominantForwardCandidate(p:Vector[], palm:number, frameH:number):Candidate|null {
-  const checks:[number,number,number,number,'index'|'middle'][]=[
-    [5,6,7,8,'index'],
-    [9,10,11,12,'middle']
-  ];
-  const ringReach=length(vec(p[16],p[13]));
-  const pinkReach=length(vec(p[20],p[17]));
-  const foldedReference=Math.max(1, Math.max(ringReach,pinkReach));
-  let best:Candidate|null=null;
-  for(const [mcp,pip,dip,tip,name] of checks){
-    const tipPoint=p[tip], base=p[mcp], pipPoint=p[pip], dipPoint=p[dip];
-    const reach=length(vec(tipPoint,base));
-    const pipReach=length(vec(pipPoint,base));
-    const distal=length(vec(tipPoint,dipPoint));
-    const direction=normalize(vec(tipPoint,base));
-    if(reach<Math.max(frameH*.06,palm*.60)||distal<Math.max(frameH*.017,palm*.13)||length(direction)<.45) continue;
-    const jointSlack=Math.abs(fingerAngle(p,mcp,pip,tip)-180);
-    const ahead=reach/Math.max(1, foldedReference);
-    const pipRatio=reach/Math.max(1,pipReach);
-    const quality=clamp(.26 + Math.min(.42,ahead*.14) + Math.min(.18, pipRatio*.07) + Math.max(0,.14-jointSlack/260), .25, .64);
-    const candidate={tip:tipPoint,base,direction,quality,name};
-    if(!best||candidate.quality>best.quality) best=candidate;
-  }
-  return best;
-}
-
-export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=480,mirrored=true):GestureSignal {
-  if(!validPoints(landmarks) || frameW<=0 || frameH<=0) return {kind:'lost',direction:ZERO,confidence:0};
+// Consistent mapping for both Sword Fruit and Space Dodge:
+//   INDEX only -> move to index TIP target
+//   INDEX + MIDDLE -> same index TIP target, one Dash event (Space Dodge only)
+//   MIDDLE only -> invalid; full palm -> start/resume; fist -> brake.
+// This is a rules-based landmark classifier, NOT a newly trained ML model.
+export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=480,mirrored=true,world?:readonly HandPoint[]):GestureSignal {
+  if(!validPoints(landmarks) || frameW<=0 || frameH<=0)return {kind:'lost',direction:ZERO,confidence:0};
   const p=landmarks.map(point=>projected(point,frameW,frameH));
-  const i=fingerAngle(p,5,6,8),m=fingerAngle(p,9,10,12);
-  const r=fingerAngle(p,13,14,16),pink=fingerAngle(p,17,18,20);
+  const i=worldAngle(world,5,6,8)??fingerAngle(p,5,6,8);
+  const m=worldAngle(world,9,10,12)??fingerAngle(p,9,10,12);
+  const r=worldAngle(world,13,14,16)??fingerAngle(p,13,14,16);
+  const pink=worldAngle(world,17,18,20)??fingerAngle(p,17,18,20);
   const palm=Math.max(1,length(vec(p[5],p[17])));
-  const thumbStraight=angle(p[2],p[3],p[4])>148 && angle(p[1],p[2],p[4])>140;
+  const thumbStraight=angle(p[2],p[3],p[4])>148&&angle(p[1],p[2],p[4])>140;
   const thumbSpread=length(vec(p[4],p[5]))>Math.max(12,palm*.72);
-  // Full palm must NOT accidentally become a pointing command.
   if(i>153&&m>153&&r>153&&pink>153&&thumbStraight&&thumbSpread)
     return {kind:'open',direction:ZERO,confidence:1};
-  // Pinky-only: tip must clearly extend past MCP, other three fingers must fold.
-  // Test after open palm, BEFORE fist or dominant index/middle fallback.
-  const pinkReach=length(vec(p[20],p[17]));
-  const pinkKnuckle=length(vec(p[18],p[17]));
-  const pinkTipAhead=length(vec(p[20],p[18]));
-  const curledIndex=length(vec(p[8],p[5]))<Math.max(frameH*.095,palm*1.04) && i<148;
-  const curledMiddle=length(vec(p[12],p[9]))<Math.max(frameH*.10,palm*1.06) && m<148;
-  const curledRing=length(vec(p[16],p[13]))<Math.max(frameH*.10,palm*1.05) && r<146;
-  if(pink>148 && pinkReach>Math.max(frameH*.095,palm*.90,pinkKnuckle*1.3)
-    &&pinkTipAhead>Math.max(frameH*.025,palm*.19) && curledIndex&&curledMiddle&&curledRing)
-    return {kind:'pinky',direction:ZERO,confidence:clamp(.72+(pink-148)/180,.72,.96)};
-  // A severely foreshortened pointing finger can have a small joint angle.
-  // Its tip still protrudes from the knuckle; do not call that a closed fist.
-  const protrudingTip=Math.max(length(vec(p[8],p[5])),length(vec(p[12],p[9])))
-    >=Math.max(frameH*.075,palm*.83);
-  if(i<133&&m<133&&r<138&&pink<138&&!protrudingTip)
-    return {kind:'fist',direction:ZERO,confidence:1};
-  // If the other two fingers are clearly open, do not mistake a V-sign or partial
-  // open palm for the sword-pointing pose.
-  // On side-facing hands MediaPipe can mistake a folded ring or little finger
-  // for an extended finger. Reject only when BOTH clearly appear extended;
-  // full open palms were already classified above.
-  if(r>155&&pink>155)return {kind:'invalid',direction:ZERO,confidence:0};
-  const idx=pointingCandidate(p,5,6,7,8,'index',palm,frameH);
-  const mid=pointingCandidate(p,9,10,11,12,'middle',palm,frameH);
-  const dominant=(!idx&&!mid)?dominantForwardCandidate(p,palm,frameH):null;
-  if(!idx&&!mid&&!dominant)return {kind:'invalid',direction:ZERO,confidence:0};
-  let tip:Vector,base:Vector,source:'index'|'middle'|'dual',confidence:number;
-  if(idx&&mid){
-    const dot=idx.direction.x*mid.direction.x+idx.direction.y*mid.direction.y;
-    const tipSeparation=length(vec(idx.tip,mid.tip));
-    if(dot>.82 && tipSeparation<Math.max(1,palm)*1.1) {
-      const total=idx.quality+mid.quality;
-      const w=idx.quality/total;
-      tip={x:idx.tip.x*w+mid.tip.x*(1-w),y:idx.tip.y*w+mid.tip.y*(1-w)};
-      base={x:idx.base.x*w+mid.base.x*(1-w),y:idx.base.y*w+mid.base.y*(1-w)};
-      source='dual';confidence=clamp((idx.quality+mid.quality)*.56,.60,1);
-    }else{
-      // An unreliable 'second finger' must not pull the aim off target.
-      const preferred=idx.quality>=mid.quality?idx:mid;
-      tip=preferred.tip;base=preferred.base;source=preferred.name;confidence=preferred.quality*.83;
-    }
-  }else{
-    const preferred=(idx??mid??dominant)!;
-    tip=preferred.tip;base=preferred.base;source=preferred.name;confidence=preferred.quality*.89;
+  const idx=indexCandidate(p,palm,frameH,world);
+  const middle=middleRaised(p,palm,frameH,world);
+  const extendedOther=otherFingersOpen(p,world);
+  // An open-ish hand cannot be used as an accidental Dash.
+  if(idx&&!extendedOther){
+    const d=vec(idx.tip,idx.base);
+    const direction=length(d)>=frameH*.018?normalize({x:mirrored?-d.x:d.x,y:d.y}):ZERO;
+    const target=pointingTarget(idx.tip,idx.base,frameW,frameH,mirrored);
+    return {kind:middle?'dash':'point',direction,target,confidence:idx.quality,source:'index'};
   }
-  const delta=vec(tip,base);
-  if(length(delta)<frameH*.035)return {kind:'invalid',direction:ZERO,confidence:0};
-  const direction=normalize({x:mirrored?-delta.x:delta.x,y:delta.y});
-  return {kind:'point',direction,target:pointingTarget(tip,base,frameW,frameH,mirrored),confidence,source};
+  const protruding=length(vec(p[8],p[5]))>=Math.max(frameH*.075,palm*.83);
+  if(i<133&&m<133&&r<138&&pink<138&&!protruding)
+    return {kind:'fist',direction:ZERO,confidence:1};
+  return {kind:'invalid',direction:ZERO,confidence:0};
 }
 
 // Time-adaptive, velocity-assisted cursor, not a 140ms gesture-activation gate.
@@ -155,16 +126,16 @@ export class GestureSmoother {
   private lastValidAt:number|null=null;
   reset(){this.accepted={kind:'lost',direction:ZERO,confidence:0};this.lastRaw=null;this.lastTarget=null;this.lastTime=null;this.lastValidAt=null;}
   update(signal:GestureSignal,now:number):GestureSignal {
-    if(signal.kind!=='point'||!signal.target){
+    if((signal.kind!=='point'&&signal.kind!=='dash')||!signal.target){
       // A single short occlusion must not blank the target or cause a jump.
       // Do not retain aim on fist, open palm, or actual loss of the whole hand.
-      if(signal.kind==='invalid'&&this.accepted.kind==='point'&&this.lastValidAt!==null&&now-this.lastValidAt<=85)
-        return {...this.accepted,confidence:this.accepted.confidence*.55};
+      if(signal.kind==='invalid'&&(this.accepted.kind==='point'||this.accepted.kind==='dash')&&this.lastValidAt!==null&&now-this.lastValidAt<=85)
+        return {...this.accepted,kind:'point',confidence:this.accepted.confidence*.55};
       this.accepted=signal;this.lastRaw=null;this.lastTarget=null;this.lastTime=null;this.lastValidAt=null;return signal;
     }
     this.lastValidAt=now;
     const raw=signal.target;
-    if(this.accepted.kind!=='point'||!this.lastRaw||!this.lastTarget||this.lastTime===null){
+    if((this.accepted.kind!=='point'&&this.accepted.kind!=='dash')||!this.lastRaw||!this.lastTarget||this.lastTime===null){
       this.lastRaw={...raw};this.lastTarget={...raw};this.lastTime=now;
       this.accepted=signal;return signal; // Aim immediately: no 140ms acceptance delay.
     }
@@ -211,14 +182,14 @@ export class OpenPalmTrigger {
   }
 }
 
-// No repeated dash when a pinky remains extended; release is required.
-export class PinkyDashTrigger {
+// Dash fires once per deliberate INDEX + MIDDLE hold; release is required.
+export class TwoFingerDashTrigger {
  private start:number|null=null;private releasedAt:number|null=null;private armed=true;
  private holdMs:number;private releaseMs:number;
  constructor(holdMs=120,releaseMs=150){this.holdMs=holdMs;this.releaseMs=releaseMs;}
  reset(){this.start=null;this.releasedAt=null;this.armed=true;}
  update(kind:GestureKind,now:number):boolean {
-  if(kind!=='pinky'){this.start=null;if(this.releasedAt===null)this.releasedAt=now;if(now-this.releasedAt>=this.releaseMs)this.armed=true;return false;}
+  if(kind!=='dash'){this.start=null;if(this.releasedAt===null)this.releasedAt=now;if(now-this.releasedAt>=this.releaseMs)this.armed=true;return false;}
   this.releasedAt=null;if(this.start===null)this.start=now;
   if(!this.armed||now-this.start<this.holdMs)return false;
   this.armed=false;return true;

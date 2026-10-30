@@ -13,7 +13,7 @@ const EDGES:[number,number][]=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[
 const DETECT_INTERVAL_MS=28; // Throttle with at most one outstanding frame: no backlog.
 const UI_UPDATE_MS=110;       // React HUD must not rerender at 30+ FPS.
 
-type WorkerReply={type:'ready'}|{type:'result';points:HandPoint[]|null;timestamp:number;inferenceMs:number}|{type:'error';message:string};
+type WorkerReply={type:'ready'}|{type:'result';points:HandPoint[]|null;worldPoints:HandPoint[]|null;timestamp:number;inferenceMs:number}|{type:'error';message:string};
 function drawLandmarks(canvas:HTMLCanvasElement,points:readonly HandPoint[]|null){
   const ctx=canvas.getContext('2d');if(!ctx)return;
   const width=canvas.width,height=canvas.height;ctx.clearRect(0,0,width,height);
@@ -64,11 +64,11 @@ export function useHandTracking(onSignal:(s:GestureSignal)=>void):HandTracker {
       const video=videoRef.current;if(!video)throw new Error('Không tìm thấy camera preview');
       video.srcObject=stream;await video.play();if(!stillActive())return;
       if(canvasRef.current){canvasRef.current.width=video.videoWidth;canvasRef.current.height=video.videoHeight;}
-      const processResult=(points:HandPoint[]|null,captureAt:number)=>{
+      const processResult=(points:HandPoint[]|null,captureAt:number,worldPoints:HandPoint[]|null=null)=>{
         if(!stillActive())return;
-        const raw=points?classifyHand(points,video.videoWidth,video.videoHeight,true):LOST;
+        const raw=points?classifyHand(points,video.videoWidth,video.videoHeight,true,worldPoints??undefined):LOST;
         const stable=smoothRef.current.update(raw,captureAt);
-        emit({...stable,latencyMs:Math.round(performance.now()-captureAt)});
+        emit({...stable,latencyMs:Math.round(performance.now()-captureAt),observedAtMs:captureAt});
         if(canvasRef.current)drawLandmarks(canvasRef.current,points);
       };
       let useWorker=false;
@@ -98,7 +98,7 @@ export function useHandTracking(onSignal:(s:GestureSignal)=>void):HandTracker {
             if(!stillActive())return;
             const data=event.data;
             if(data.type==='ready'){useWorker=true;busyRef.current=false;setStatus('ready');setMessage('AI sẵn sàng · xử lý ở worker');}
-            else if(data.type==='result'){busyRef.current=false;processResult(data.points,data.timestamp);}
+            else if(data.type==='result'){busyRef.current=false;processResult(data.points,data.timestamp,data.worldPoints);}
             else if(data.type==='error')void startMainThreadFallback(data.message).catch(fail);
           };
           worker.postMessage({type:'init',wasm:WASM,model:MODEL});
@@ -123,8 +123,8 @@ export function useHandTracking(onSignal:(s:GestureSignal)=>void):HandTracker {
           }).catch(error=>{busyRef.current=false;void startMainThreadFallback(String(error)).catch(fail);});
         }else if(landmarkerRef.current){
           try{
-            const points=landmarkerRef.current.detectForVideo(vid,now).landmarks?.[0]??null;
-            processResult(points,now);
+            const result=landmarkerRef.current.detectForVideo(vid,now);
+            processResult(result.landmarks?.[0]??null,now,result.worldLandmarks?.[0]??null);
           }catch(error){fail(error);}
         }
       };

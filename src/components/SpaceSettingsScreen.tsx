@@ -57,7 +57,7 @@ export function SpaceSettingsScreen({initial,activeRound,soundEnabled,onSave,onC
    </div></>}
   {tab==='skills'&&<><div className="gs-section-title">KỸ NĂNG PHI THUYỀN</div><div className="gs-grid">
    {toggle('shieldEnabled','Shield – Lá chắn','Nhặt biểu tượng khiên để chặn một lần va chạm. Không tích nhiều khiên.')}
-   {toggle('dashEnabled','Dash bằng ngón út','Duỗi riêng ngón út khoảng 120 ms để lao theo điểm ngắm gần nhất. Chế độ bàn phím dùng Shift.')}
+   {toggle('dashEnabled','Dash bằng ngón trỏ + ngón giữa','Giữ ngón trỏ đang chỉ, duỗi thêm ngón giữa khoảng 120 ms để Dash; điểm ngắm vẫn lấy từ ngón trỏ. Bàn phím: Shift.')}
    {draft.dashEnabled&&<>{slider('dashBoost','Hệ số tốc độ Dash',1.5,4,.1,'Dash kéo dài 0.22 giây.','×')}{slider('dashCooldown','Hồi chiêu Dash',1,10,.5,'Cần thả pose rồi giơ lại để kích hoạt.','s')}</>}
    </div><p className="space-settings-help">Dash: giữ hướng khi kích hoạt, không tự đổi hướng giữa Dash. Bất tử trong phần lớn thời gian lao nhanh; không lạm dụng để xuyên tường hoặc bay khỏi vùng game.</p></>}
   {tab==='ai'&&<><div className="gs-section-title">NHẬN DIỆN VÀ HIỆU CHUẨN</div><div className="gs-grid">{slider('aimSensitivity','Độ nhạy điểm ngắm',.5,2,.1,'Không thay đổi tốc độ nhận diện camera.','×')}</div>

@@ -1,7 +1,7 @@
 import {clamp, length, normalize, GAME_WIDTH, GAME_HEIGHT, type Vector} from '../game/rules.ts';
 
 export type HandPoint = {x:number;y:number;z?:number};
-export type GestureKind = 'point'|'open'|'fist'|'invalid'|'lost';
+export type GestureKind = 'point'|'open'|'fist'|'pinky'|'invalid'|'lost';
 export type GestureSignal = {kind:GestureKind;direction:Vector;confidence:number;target?:Vector;source?:'index'|'middle'|'dual';latencyMs?:number};
 const ZERO:Vector={x:0,y:0};
 const DEADZONE=55;
@@ -92,6 +92,17 @@ export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=48
   // Full palm must NOT accidentally become a pointing command.
   if(i>153&&m>153&&r>153&&pink>153&&thumbStraight&&thumbSpread)
     return {kind:'open',direction:ZERO,confidence:1};
+  // Pinky-only: tip must clearly extend past MCP, other three fingers must fold.
+  // Test after open palm, BEFORE fist or dominant index/middle fallback.
+  const pinkReach=length(vec(p[20],p[17]));
+  const pinkKnuckle=length(vec(p[18],p[17]));
+  const pinkTipAhead=length(vec(p[20],p[18]));
+  const curledIndex=length(vec(p[8],p[5]))<Math.max(frameH*.095,palm*1.04) && i<148;
+  const curledMiddle=length(vec(p[12],p[9]))<Math.max(frameH*.10,palm*1.06) && m<148;
+  const curledRing=length(vec(p[16],p[13]))<Math.max(frameH*.10,palm*1.05) && r<146;
+  if(pink>148 && pinkReach>Math.max(frameH*.095,palm*.90,pinkKnuckle*1.3)
+    &&pinkTipAhead>Math.max(frameH*.025,palm*.19) && curledIndex&&curledMiddle&&curledRing)
+    return {kind:'pinky',direction:ZERO,confidence:clamp(.72+(pink-148)/180,.72,.96)};
   // A severely foreshortened pointing finger can have a small joint angle.
   // Its tip still protrudes from the knuckle; do not call that a closed fist.
   const protrudingTip=Math.max(length(vec(p[8],p[5])),length(vec(p[12],p[9])))
@@ -198,4 +209,18 @@ export class OpenPalmTrigger {
     if(!this.armed || now-this.openSince<this.holdMs || now-this.lastAction<this.cooldownMs)return false;
     this.armed=false;this.lastAction=now;return true;
   }
+}
+
+// No repeated dash when a pinky remains extended; release is required.
+export class PinkyDashTrigger {
+ private start:number|null=null;private releasedAt:number|null=null;private armed=true;
+ private holdMs:number;private releaseMs:number;
+ constructor(holdMs=120,releaseMs=150){this.holdMs=holdMs;this.releaseMs=releaseMs;}
+ reset(){this.start=null;this.releasedAt=null;this.armed=true;}
+ update(kind:GestureKind,now:number):boolean {
+  if(kind!=='pinky'){this.start=null;if(this.releasedAt===null)this.releasedAt=now;if(now-this.releasedAt>=this.releaseMs)this.armed=true;return false;}
+  this.releasedAt=null;if(this.start===null)this.start=now;
+  if(!this.armed||now-this.start<this.holdMs)return false;
+  this.armed=false;return true;
+ }
 }

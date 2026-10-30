@@ -23,7 +23,7 @@ test('safe spawning prevents immediate ship hits and stacked meteors',()=>{
 test('space settings clamp, star points, and independent ranked keys',()=>{
  assert.deepEqual(normalizeSpaceSettings(null),SPACE_DEFAULTS);assert.equal(nextSpaceScore(7),700);
  const s=normalizeSpaceSettings({mode:'goal',goal:1500,lives:12,meteorSpeed:11,shipSpeed:0,progressive:false});
- assert.equal(s.lives,5);assert.equal(s.meteorSpeed,2);assert.equal(s.shipSpeed,.5);assert.equal(s.goal,1500);
+ assert.equal(s.lives,10);assert.equal(s.meteorSpeed,3);assert.equal(s.shipSpeed,.5);assert.equal(s.goal,1500);
  assert.notEqual(spaceSettingsKey(s),spaceSettingsKey(SPACE_DEFAULTS));
 });
 test('top five sorts endless by stars and goal by completion time, with distinct players',()=>{

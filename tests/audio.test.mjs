@@ -56,3 +56,10 @@ test('sound subsystem degrades harmlessly without browser AudioContext',()=>{
   globalThis.AudioContext=FakeAudioContext;
 });
 process.on('exit',()=>{globalThis.AudioContext=originalAudioContext;});
+test('dash and shield audio are distinct and volume may be muted without disabling sound',()=>{
+ const audio=new GameAudio(true);audio.unlock();const start=FakeAudioContext.started;
+ audio.setVolume(50);audio.play('dash');audio.play('shield');
+ assert.equal(FakeAudioContext.started,start+3);
+ audio.setVolume(0);audio.play('shield');assert.equal(FakeAudioContext.started,start+4);
+ audio.dispose();
+});

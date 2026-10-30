@@ -95,3 +95,19 @@
 .game-workspace:fullscreen .arcade-mode-selector{padding:4px 8px;flex-shrink:0}
 .game-workspace:fullscreen .arcade-mode-selector button{padding:6px 12px;font-size:10px}
 @media(max-width:600px){.arcade-mode-selector{flex-wrap:wrap}.arcade-mode-selector button{padding:7px 10px}.space-banner-inner{gap:7px;font-size:11px}}
+/* Space Dodge V2.2 – Advanced settings tabs, profiles and calibration */
+.space-advanced-page{max-width:1050px;display:flex;flex-direction:column;max-height:min(92vh,920px);overflow:hidden}
+.space-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:15px 0 10px;padding-bottom:10px;border-bottom:1px solid rgba(145,200,229,.2)}
+.space-tabs button{color:#b5d6ed;background:rgba(33,65,95,.45);border:1px solid rgba(110,182,220,.24);border-radius:9px;padding:10px 12px;font-weight:700;cursor:pointer}
+.space-tabs button.active{background:#167a87;color:white;border-color:#48c6da}
+.space-tab-body{overflow-y:auto;min-height:180px;flex:1;padding:0 5px 16px;scrollbar-width:thin}
+.space-profile-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.space-profile-row input{flex:1;min-width:175px;border:1px solid rgba(110,182,220,.25);border-radius:8px;background:#152e48;color:white;padding:11px}
+.space-profile-list{display:grid;gap:6px}
+.space-profile-list>div{display:flex;align-items:center;gap:10px;padding:7px 10px;background:rgba(80,138,180,.1);border-radius:8px}
+.space-profile-list strong{flex:1}
+.space-profile-list button{border:1px solid #486780;background:#14283f;color:#bde5e9;border-radius:6px;padding:6px 10px;cursor:pointer}
+.space-calibration{padding:16px;margin:12px 0;border:1px solid rgba(91,215,215,.28);border-radius:12px;background:rgba(23,61,75,.28)}
+.space-calibration p,.space-settings-help{font-size:13px;color:#b1cedb;line-height:1.6}
+.space-calibration small{display:block;color:#86d5c6;margin-top:9px}
+@media(max-width:650px){.space-tabs{flex-wrap:nowrap;overflow-x:auto}.space-tabs button{white-space:nowrap}.space-advanced-page{max-height:97vh}}

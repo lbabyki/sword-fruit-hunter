@@ -33,3 +33,34 @@ test('long game never exceeds meteor count and spawns from right side',()=>{
  assert.ok(scene.objects.filter(x=>x.kind==='meteor').length<=6);
  assert.ok(scene.survival>0);
 });
+
+test('shield absorbs exactly one meteor collision without life loss',()=>{
+ const {scene}=setup({shieldEnabled:true,lives:3});scene.shield=1;
+ object(scene,'meteor');scene.update(0,16);assert.equal(scene.lives,3);assert.equal(scene.shield,0);
+ object(scene,'meteor');scene.immunity=0;scene.update(16,16);assert.equal(scene.lives,2);
+});
+test('star combo adds a flat 25 for consecutive collected stars',()=>{
+ const {scene}=setup({starCombo:true,starComboSeconds:4});
+ object(scene,'star');scene.update(0,16);
+ object(scene,'star');scene.update(16,16);
+ assert.equal(scene.stars,2);assert.equal(scene.score,225);assert.equal(scene.starCombo,2);
+});
+test('pinky held for 120ms triggers a single dash, cooldown blocks repeat',()=>{
+ const {scene}=setup({dashEnabled:true,dashCooldown:3});
+ scene.bridge.getMode=()=> 'camera';scene.lastAim={x:850,y:360};scene.bridge.getSignal=()=>({kind:'pinky',direction:{x:0,y:0},confidence:1});
+ for(let i=0;i<12;i++)scene.update(i*16,16);
+ assert.equal(scene.dashUses,1);assert.ok(scene.dashCooldown>2.5);assert.ok(scene.ship.x>300);
+ for(let i=0;i<20;i++)scene.update(200+i*16,16);
+ assert.equal(scene.dashUses,1);
+});
+test('reaching the survival time limit completes endless, while goal times out',()=>{
+ const a=setup({mode:'endless',timeLimit:10});a.scene.survival=9.99;a.scene.update(0,25);
+ assert.equal(a.scene.phase,'finished');assert.equal(a.out[0].completed,true);
+ const b=setup({mode:'goal',goal:1000,timeLimit:10});b.scene.survival=9.99;b.scene.update(0,25);
+ assert.equal(b.scene.phase,'failed');assert.equal(b.out[0].completed,false);
+});
+test('special risk star scoring respects configured base points',()=>{
+ const {scene}=setup({starPoints:200,specialStars:true,riskStars:true});
+ const star=object(scene,'star');star.special=true;star.risk=true;scene.update(0,16);
+ assert.equal(scene.score,1000);
+});

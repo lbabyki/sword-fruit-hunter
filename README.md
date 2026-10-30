@@ -193,3 +193,36 @@ Sau khi giải nén V1.2 vào dự án đang chạy, dừng Vite (`Ctrl+C`), ch�
 6. Nắm tay phải hãm ngay; xòe năm ngón đủ lâu kích hoạt lệnh một lần; cử chỉ `invalid` liên tục quá 85 ms phải ngừng giữ mục tiêu cũ.
 
 **Hạn chế kiểm chứng hiện tại:** `npm test` và typecheck lõi chạy được trong môi trường tạo mã, nhưng `npm run build` chưa chạy do chưa có `node_modules/@mediapipe/tasks-vision` để đồng bộ WASM. Trên Windows, chạy `npm install`, `npm test`, `npm run build` rồi QA webcam thật.
+
+
+---
+
+## Space Dodge V2.2 – Advanced Settings & Advanced Gameplay
+
+Bản V2.2 được phát triển từ mã nguồn V2.0. Sword Fruit (thu thập chữ, combo, bom và điểm kết) được giữ nguyên.
+
+### Cài đặt Space Dodge
+
+Mở **SPACE DODGE → CÀI ĐẶT**. Các tab gồm: Luật chơi, Thiên thạch, Phi thuyền, Sao & điểm, Kỹ năng, Điều khiển AI, Hiệu ứng.
+
+- Preset: Easy / Normal / Hard / Extreme / Custom; lưu/tải/xóa preset đặt tên trong trình duyệt.
+- Điều chỉnh số mạng 1–10, mốc điểm 100–10.000, thời hạn 0–600 giây (0 = không giới hạn), thời gian bất tử 0–3 giây.
+- Thiên thạch: tốc độ 0,5–3×, khoảng sinh 0,5–4 giây, trần đồng thời 1–12, kích thước 0,5–2×, trọng số ba quỹ đạo, tăng độ khó theo chu kỳ, Heavy/Cluster/Splitter/Meteor Wave.
+- Phi thuyền: tốc độ, gia tốc, hãm, hitbox và xoay theo vận tốc.
+- Sao: bật/tắt, điểm mỗi sao, tần suất, số lượng, tốc độ, combo +25 mỗi bậc, sao đặc biệt, Risk Star.
+- Shield: vật phẩm khiên tự xuất hiện không thường xuyên, chặn một lần va chạm; không cộng dồn nhiều khiên.
+- Dash: khi đã bật trong Settings, **duỗi riêng ngón út** khoảng 120ms để lao theo điểm ngắm/hướng trước đó. Không lặp trong một lần giơ tay. Dash dài 0,22 giây, cooldown mặc định 3 giây; ở chế độ bàn phím dùng **Shift**.
+- Near Miss: thưởng +20 khi né sát thiên thạch một lần; Meteor Wave: tăng mật độ khoảng 20–26 giây trong mỗi chu kỳ 30 giây.
+- Điều khiển AI: độ nhạy, hiệu chuẩn hai điểm bằng webcam; chỉ là ánh xạ 2D, KHÔNG phải suy ra tia nhìn 3D chính xác.
+- Hiệu ứng: âm lượng riêng Space Dodge (bật/tắt âm thanh dùng chung), rung, vệt động cơ/thiên thạch, hiển thị cảnh báo sát cạnh phải và giảm chuyển động.
+
+### Thời gian và bảng điểm
+
+- Endless: hết mạng kết thúc; nếu đặt giới hạn thời gian, sống đủ thời gian là hoàn thành thử thách.
+- Score Challenge: đạt đủ điểm là thắng; hết thời gian hoặc hết mạng trước khi đủ điểm là thua.
+- Top 5 tách theo mode và các thiết lập có ảnh hưởng gameplay. Cài đặt chỉ hiệu ứng không làm đổi nhóm leaderboard.
+- Các lượt chơi đang chạy sẽ không bị reset nếu mở Settings; thay đổi độ khó áp dụng ở lượt mới.
+
+### Kiểm thử
+
+Chạy `npm install`, `npm test`, `npm run build`, `npm run dev`. Trong môi trường tạo mã, 103 bài kiểm thử logic đạt; chưa xác minh build Vite đầy đủ do không tải được dependencies từ npm registry. Cần QA trực tiếp với webcam để hiệu chỉnh pose ngón út, tốc độ phản hồi và khả năng né ở thiết lập cao.

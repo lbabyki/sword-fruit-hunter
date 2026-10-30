@@ -1,5 +1,5 @@
 /** Lightweight synthesized game SFX. No network assets, decoding, or timers are required. */
-export type SoundEffect = 'fruit' | 'bomb' | 'button';
+export type SoundEffect = 'fruit' | 'bomb' | 'button' | 'dash' | 'shield';
 
 export class GameAudio {
   private context: AudioContext | null = null;
@@ -7,11 +7,13 @@ export class GameAudio {
   private noise: AudioBuffer | null = null;
   private unlocked = false;
   private enabled: boolean;
+  private volume = 100;
   private disposed = false;
 
   constructor(enabled = true) { this.enabled = enabled; }
 
   setEnabled(value: boolean): void { this.enabled = value; }
+  setVolume(percent:number):void { this.volume=Math.max(0,Math.min(100,Number.isFinite(percent)?percent:100));if(this.master)this.master.gain.value=.27*this.volume/100; }
   get isEnabled(): boolean { return this.enabled; }
 
   /** Invoke synchronously from a real button click / pointer interaction. */
@@ -24,7 +26,7 @@ export class GameAudio {
         if (!AudioCtor) return;
         const ctx = new AudioCtor();
         const master = ctx.createGain();
-        master.gain.value = 0.27;
+        master.gain.value = .27*this.volume/100;
         master.connect(ctx.destination);
         this.context = ctx;
         this.master = master;
@@ -46,6 +48,13 @@ export class GameAudio {
         case 'fruit':
           this.noiseBurst(ctx, now, 0.16, 0.22, 'highpass', 980);
           this.tone(ctx, now, 770, 1120, 0.12, 0.14, 'triangle');
+          break;
+        case 'dash':
+          this.noiseBurst(ctx, now, 0.12, 0.14, 'highpass', 1250);
+          this.tone(ctx, now, 580, 1260, 0.20, 0.22, 'triangle');
+          break;
+        case 'shield':
+          this.tone(ctx, now, 800, 400, 0.18, 0.20, 'sine');
           break;
         case 'bomb':
           this.noiseBurst(ctx, now, 0.42, 0.42, 'lowpass', 540);

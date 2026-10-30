@@ -164,3 +164,20 @@ test('near-camera dual fingertips still resolve to a pointing pose even when ang
   assert.equal(result.kind,'point');
   assert.ok(result.source==='index' || result.source==='middle' || result.source==='dual');
 });
+
+test('isolated extended pinky triggers dash, not fist',()=>{
+ const p=hand('fist');
+ p[17]=xy(.47,.65);p[18]=xy(.50,.58);p[19]=xy(.53,.47);p[20]=xy(.57,.31);
+ assert.equal(classifyHand(p).kind,'pinky');
+});
+test('extended index and little finger together do not activate dash',()=>{
+ const p=hand('index');p[17]=xy(.47,.65);p[18]=xy(.50,.58);p[19]=xy(.53,.47);p[20]=xy(.57,.31);
+ assert.notEqual(classifyHand(p).kind,'pinky');
+});
+test('pinky trigger needs a hold and release before reactivation',async()=>{
+ const {PinkyDashTrigger}=await import('../src/tracking/gestures.ts');
+ const g=new PinkyDashTrigger();
+ assert.equal(g.update('pinky',0),false);assert.equal(g.update('pinky',119),false);assert.equal(g.update('pinky',120),true);
+ assert.equal(g.update('pinky',400),false);g.update('point',420);g.update('point',580);
+ assert.equal(g.update('pinky',600),false);assert.equal(g.update('pinky',721),true);
+});

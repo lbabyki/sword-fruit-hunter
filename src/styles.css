@@ -83,3 +83,15 @@
 @media(max-width:1000px){.game-controls{grid-template-columns:minmax(0,1.5fr) minmax(170px,1fr)}.control-legend{display:none}}
 @media(max-width:650px){.gs-grid{grid-template-columns:1fr}.game-controls{grid-template-columns:1fr}.player-inline{max-width:none}.game-topline .settings-top-button{padding:5px 6px;font-size:10px}.game-topline .mission-label{display:none}.game-settings-page{padding:15px}.gs-header h2{font-size:29px}.gs-footer .secondary-btn{width:100%}.gs-footer-right{width:100%;justify-content:flex-end}}
 @media(max-width:900px){.game-workspace:fullscreen .game-controls{grid-template-columns:minmax(0,1fr) minmax(125px,.7fr);gap:4px}.game-workspace:fullscreen .player-inline input{height:28px;font-size:11px}.game-workspace:fullscreen .player-inline span{font-size:8px}}
+
+/* V2.0: game mode navigation and Space Dodge status banner. */
+.arcade-mode-selector{display:flex;gap:9px;padding:9px 12px 8px;border-bottom:1px solid #20384e;background:#091a30;align-items:center}
+.arcade-mode-selector button{border:1px solid #34536d;background:#0d243b;color:#96b3c8;border-radius:7px;padding:9px 17px;font-size:11px;font-weight:850;letter-spacing:.8px;transition:background .16s,border-color .16s,color .16s}
+.arcade-mode-selector button.selected{background:linear-gradient(125deg,#17695f,#15556d);border-color:#57cdb1;color:#e9fff7}
+.arcade-mode-selector button:disabled{opacity:.58;cursor:not-allowed}
+.space-banner{display:flex;justify-content:space-between;align-items:center}
+.space-banner-inner{display:flex;gap:22px;align-items:center;font-size:16px;font-weight:850;color:#7deac2}
+.space-banner-inner span{color:#ffdf88}
+.game-workspace:fullscreen .arcade-mode-selector{padding:4px 8px;flex-shrink:0}
+.game-workspace:fullscreen .arcade-mode-selector button{padding:6px 12px;font-size:10px}
+@media(max-width:600px){.arcade-mode-selector{flex-wrap:wrap}.arcade-mode-selector button{padding:7px 10px}.space-banner-inner{gap:7px;font-size:11px}}

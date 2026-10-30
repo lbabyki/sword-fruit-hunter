@@ -124,3 +124,9 @@ Checkpoint: `SF-V1.3-FULLSCREEN_TOP5_FINALSCORE_GESTURE_TOLERANCE_READY_FOR_QA`
 - Nhãn UI chỉ rõ dùng `TRỎ`, `GIỮA`, hay `HAI NGÓN`, hiển thị thời gian xử lý lấy frame → trả landmark (không phải glass-to-glass).
 - **40/40 unit+headless mock tests PASS**; core typecheck PASS; 4 file mới/sửa qua TS transpile syntax check.
 - **Chưa làm được:** `npm run build`/QA camera thực tế do npm registry bị DNS EAI_AGAIN; không thể tuyên bố tính năng worker hay độ trễ đã đạt SLA. Phải kiểm thử toàn bộ 252 ảnh/ví dụ tư thế bằng MediaPipe và thử cử động tay trên camera thật.
+
+
+## V1.5.1 gesture hotfix
+- Added dominant-forward fingertip fallback for the missing pose from img_data.
+- Full regression suite: 71/71 PASS.
+- Scope limited to task 1 only.

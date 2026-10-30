@@ -144,3 +144,23 @@ test('foreshortened pointing shape with protruding fingertip cannot be mistaken 
   const result=classifyHand(p);
   assert.notEqual(result.kind,'fist');
 });
+
+
+test('dominant protruding fingertip remains valid when projected joints flatten toward the camera',()=>{
+  const p=hand('index');
+  p[6]=xy(.44,.63);p[7]=xy(.46,.635);p[8]=xy(.61,.635); // almost horizontal, foreshortened chain
+  p[10]=xy(.40,.645);p[11]=xy(.405,.648);p[12]=xy(.445,.651); // middle mostly folded / hidden
+  const result=classifyHand(p);
+  assert.equal(result.kind,'point');
+  assert.equal(result.source,'index');
+  assert.ok(result.target);
+});
+
+test('near-camera dual fingertips still resolve to a pointing pose even when angle tests collapse',()=>{
+  const p=hand('dual');
+  p[6]=xy(.42,.64);p[7]=xy(.45,.645);p[8]=xy(.59,.642);
+  p[10]=xy(.455,.643);p[11]=xy(.485,.647);p[12]=xy(.62,.647);
+  const result=classifyHand(p);
+  assert.equal(result.kind,'point');
+  assert.ok(result.source==='index' || result.source==='middle' || result.source==='dual');
+});

@@ -179,7 +179,7 @@ export class SwordFruitScene extends Phaser.Scene {
     }
   }
   private spawnAdditional() {
-    const maxObjects=this.settings.bombsEnabled&&this.settings.bombsPerWave>0?10:4;
+    const maxObjects=this.settings.bombsEnabled&&this.settings.bombsPerWave>0?7:4;
     if(this.fruit.length>=maxObjects)return;
     const decoys=this.fruit.filter(f=>f.kind==='decoy').length;
     let newFruit=false;
@@ -194,7 +194,7 @@ export class SwordFruitScene extends Phaser.Scene {
       if(!newFruit)return; // Bombs accompany a newly spawned fruit, never a bomb-only wave.
       // Every spawn wave tries to launch N bombs along with the fruit.
       // Cap concurrent bombs so they never permanently seal off the target.
-      const cap=Math.min(6,2*this.settings.bombsPerWave);
+      const cap=Math.min(4,2*this.settings.bombsPerWave);
       for(let i=0;i<this.settings.bombsPerWave;i++){
         if(this.fruit.length>=maxObjects||this.fruit.filter(f=>f.kind==='bomb').length>=cap)break;
         this.addFruit('bomb','');
@@ -244,7 +244,12 @@ export class SwordFruitScene extends Phaser.Scene {
     if(f.kind==='bomb'){
       this.bombs++;this.penaltySeconds+=BOMB_PENALTY_SECONDS;this.combo=0;this.comboLeft=0;
       this.hint='BOM! +5 giây • Mất combo';this.flash(0xF18D65,14);
-        this.publish();return;
+      // Cosmetic shake: Phaser camera only. World coordinates/hit detection stay unchanged.
+      this.cameras.main.shake?.(180,0.008,false);
+      if(this.settings.bombGameOver && this.bombs>this.settings.bombLimit){
+        this.failByBomb();return;
+      }
+      this.publish();return;
     }
     const matchIndex=findCollectibleIndex(this.currentWord,this.collectedIndices,f.letter,this.settings.unorderedLetters);
     if(matchIndex===-1){
@@ -296,6 +301,23 @@ export class SwordFruitScene extends Phaser.Scene {
     };
     this.publish();this.bridge.onFinish(result);
   }
+  private failByBomb(){
+    if(this.phase!=='playing')return;
+    this.phase='failed';this.velocity={x:0,y:0};this.clearFruit();
+    this.hint=`GAME OVER • ${this.bombs} bom, vượt giới hạn ${this.settings.bombLimit}`;
+    const rankSeconds=Number(rankingSeconds(this.playSeconds,this.bombs).toFixed(2));
+    const result:RankResult={
+      id:typeof crypto!=='undefined'&&'randomUUID' in crypto?crypto.randomUUID():String(Date.now()),
+      player:this.bridge.getPlayer().trim()||'Người chơi',score:this.score,
+      baseScore:this.score,timeBonus:0,scoringVersion:2,settingsKey:settingsKey(this.settings),
+      scoreTimeSeconds:this.settings.scoreTimeSeconds,pointsPerSecond:this.settings.pointsPerSecond,
+      completedLetters:this.words.slice(0,this.stage).join('').length+this.letterIndex,
+      playSeconds:Number(this.playSeconds.toFixed(2)),penaltySeconds:this.penaltySeconds,rankSeconds,
+      maxCombo:this.maxCombo,wrongHits:this.mistakes,bombHits:this.bombs,words:[...this.words],
+      date:new Date().toISOString(),mode:this.bridge.getMode(),fairMode:false
+    };
+    this.publish();this.bridge.onFailure(result);
+  }
   private flash(color:number,count:number){
     for(let i=0;i<count;i++){const a=this.rng()*Math.PI*2,m=40+this.rng()*120;
       this.sparks.push({position:{...this.sword},velocity:{x:Math.cos(a)*m,y:Math.sin(a)*m},life:.26+this.rng()*.27,color});}
@@ -344,6 +366,7 @@ export class SwordFruitScene extends Phaser.Scene {
     if(this.phase==='idle') this.drawCenterMessage('SWORD FRUIT',this.bridge.getMode()==='camera'?'Xòe đủ 5 ngón để bắt đầu • Hai ngón ngắm đích':'Nhấn BẮT ĐẦU • WASD / mũi tên để điều khiển',g);
     if(this.phase==='paused') this.drawCenterMessage('TẠM DỪNG',this.bridge.getMode()==='camera'?'Xòe đủ 5 ngón để tiếp tục':'Nhấn nút TIẾP TỤC',g);
     if(this.phase==='between') this.drawCenterMessage('HOÀN THÀNH TỪ!',`+${STAGE_BONUSES[[3,5,7].indexOf(this.currentWord.length)]??100} điểm thưởng`,g);
+    if(this.phase==='failed') this.drawCenterMessage('GAME OVER',`Vượt giới hạn ${this.settings.bombLimit} bom • Xòe tay hoặc nhấn chơi lại`,g);
     if(this.phase==='finished') this.drawCenterMessage('MISSION COMPLETE',this.bridge.getMode()==='camera'?'Xòe đủ 5 ngón để chơi lại':'Xem bảng điểm hoặc chọn CHƠI LẠI',g);
   }
   private drawSword(g:Phaser.GameObjects.Graphics){
@@ -376,7 +399,7 @@ export class SwordFruitScene extends Phaser.Scene {
       letterIndex:this.letterIndex,collectedIndices:[...this.collectedIndices],unorderedLetters:this.settings.unorderedLetters,stageCount:this.words.length,
       scoreTimeSeconds:this.settings.scoreTimeSeconds,pointsPerSecond:this.settings.pointsPerSecond,score:this.score,combo:this.combo,maxCombo:this.maxCombo,
       comboLeft:this.comboLeft,playSeconds:this.playSeconds,penaltySeconds:this.penaltySeconds,
-      bombs:this.bombs,mistakes:this.mistakes,sword:{...this.sword},hint:this.hint};
+      bombs:this.bombs,bombGameOver:this.settings.bombGameOver,bombLimit:this.settings.bombLimit,mistakes:this.mistakes,sword:{...this.sword},hint:this.hint};
     this.bridge.onStatus(state);
   }
 }

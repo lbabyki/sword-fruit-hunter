@@ -6,7 +6,7 @@
 
 - **Màn hình CÀI ĐẶT**: nút ngay thanh mission phía trên arena; mở được cả trong chế độ fullscreen. Nếu đang chơi, game tự chuyển sang tạm dừng; cài đặt đã lưu chỉ áp dụng khi bắt đầu lượt mới. Trong khoảng chuyển từ, chờ 1,3 giây để mở.
 - **Tên người chơi** được đưa về chính giữa thanh điều khiển dưới arena (hiện cả trong fullscreen). Bắt buộc nhập tên không rỗng trước khi bắt đầu; tên được nhớ trong localStorage, không đổi khi ván đang chơi.
-- **Bom**: công tắc bật/tắt; 0 bom mỗi đợt dùng quota cổ điển theo chặng, 1–6 bom bổ sung cho mỗi đợt có hoa quả gây nhiễu mới. Việc spawn bom chỉ thực hiện khi có chỗ, theo kiểm tra va chạm dự đoán; không thả bom đơn lẻ nếu đợt không tạo được quả mới. Bom vẫn phạt +5 giây, mất combo.
+- **Bom**: công tắc bật/tắt; 0 bom mỗi đợt dùng quota cổ điển theo chặng, 1–2 bom bổ sung cho mỗi đợt có hoa quả gây nhiễu mới. Việc spawn bom chỉ thực hiện khi có chỗ, theo kiểm tra va chạm dự đoán; không thả bom đơn lẻ nếu đợt không tạo được quả mới. Bom vẫn phạt +5 giây, mất combo.
 - **Tốc độ**: hoa quả ×0,5–2,0 và kiếm ×0,5–2,0 (bước 0,1). Điều chỉnh trực tiếp khi bắt đầu ván từ cài đặt đã lưu.
 - **Kéo dài màn chơi**: cộng 0/3/5/7/8/10/12/15 chữ thông qua *từ hoàn chỉnh* 3, 5, 7 chữ; tối đa 6 chặng và 30 chữ. Chặng bổ sung tiếp tục cộng điểm và combo.
 - **Chữ tự do**: checkbox cho phép chém bất kỳ chữ nào còn thiếu; một chữ lặp vẫn yêu cầu đúng số lần trong từ, các ô chữ xanh theo đúng vị trí đã thu thập.
@@ -36,7 +36,7 @@
 2. Mở setting khi đang chơi: game phải tạm dừng; nhấn đóng không tự phát lại; dùng nút Tiếp tục hoặc xòe 5 ngón. Cấu hình chỉ thay đổi sau lượt kế tiếp.
 3. Chọn chém tự do rồi thử `APPLE`: chém `L`, `P`, `A`, `P`, `E` phải hoàn thành đúng 5 chữ; thử chém P lần thứ 3 bị tính sai.
 4. Chơi qua 50 giây với mốc 50: không được tự kết thúc, có thể vẫn hoàn thành và thưởng âm. Chuyển sang mốc 90/120 và hệ số điểm khác, đối chiếu công thức.
-5. Tắt bom: không có bom ở mọi chặng; bật 1–6 bom/đợt: bom chỉ kèm đợt sinh quả mới và có thể bị bỏ qua khi không đủ chỗ an toàn.
+5. Tắt bom: không có bom ở mọi chặng; bật 1–2 bom/đợt: bom chỉ kèm đợt sinh quả mới và có thể bị bỏ qua khi không đủ chỗ an toàn.
 6. Hoàn thành màn 30 chữ; đồng hồ, ô chữ, HUD, chặng, màn kết quả và xếp hạng hiển thị đúng.
 7. Thử nhập tên giữa thanh trong 1920×1080 và 1366×768, fullscreen; chữ không mất khi reload.
 8. Kiểm tra top 5 trước đây vẫn còn khi chọn lại cài đặt mặc định, và không lẫn kết quả giữa hai cấu hình khác nhau.

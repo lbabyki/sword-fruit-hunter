@@ -48,15 +48,8 @@ export class GameAudio {
           this.tone(ctx, now, 770, 1120, 0.12, 0.14, 'triangle');
           break;
         case 'bomb':
-          // Two bright, inharmonic clangs give the bomb hit a "keng-keng" character.
-          this.noiseBurst(ctx, now, 0.075, 0.19, 'highpass', 1450);
-          this.tone(ctx, now, 1320, 860, 0.25, 0.23, 'sine');
-          this.tone(ctx, now, 1940, 1280, 0.20, 0.15, 'triangle');
-          this.tone(ctx, now, 2680, 1720, 0.15, 0.08, 'sine');
-          this.noiseBurst(ctx, now + 0.105, 0.07, 0.12, 'highpass', 1650);
-          this.tone(ctx, now + 0.105, 1120, 720, 0.22, 0.16, 'sine');
-          this.tone(ctx, now + 0.105, 1680, 1080, 0.17, 0.10, 'triangle');
-          this.tone(ctx, now + 0.105, 2320, 1480, 0.13, 0.055, 'sine');
+          this.noiseBurst(ctx, now, 0.42, 0.42, 'lowpass', 540);
+          this.tone(ctx, now, 160, 43, 0.40, 0.48, 'sawtooth');
           break;
       }
     } catch { /* Browsers may refuse audio while switching devices/tabs. Never block gameplay. */ }

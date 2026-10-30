@@ -15,7 +15,7 @@ test('settings have safe defaults including bombs and 50-second scoring referenc
 });
 test('settings normalize invalid numbers and preserve supported options',()=>{
   const s=normalizeSettings({fruitSpeed:100,swordSpeed:-2,bombsPerWave:9,scoreTimeSeconds:999,pointsPerSecond:45,extraLetters:12,unorderedLetters:true,bombsEnabled:false});
-  assert.equal(s.fruitSpeed,2);assert.equal(s.swordSpeed,.5);assert.equal(s.bombsPerWave,6);
+  assert.equal(s.fruitSpeed,2);assert.equal(s.swordSpeed,.5);assert.equal(s.bombsPerWave,2);
   assert.equal(s.scoreTimeSeconds,300);assert.equal(s.pointsPerSecond,45);
   assert.equal(s.extraLetters,12);assert.equal(s.unorderedLetters,true);assert.equal(s.bombsEnabled,false);
 });
@@ -81,4 +81,17 @@ test('mute/unmute does not alter ranking grouping or difficulty identity',()=>{
   assert.equal(settingsKey(normalizeSettings({soundEnabled:false})),'classic-v1.3');
   assert.equal(isDefaultSettings(normalizeSettings({soundEnabled:false})),true);
   assert.equal(DEFAULT_SETTINGS.soundEnabled,true);
+});
+
+test('bomb failure settings clamp 0..20 and remain backward-compatible',()=>{
+  assert.equal(DEFAULT_SETTINGS.bombGameOver,false);
+  assert.equal(DEFAULT_SETTINGS.bombLimit,3);
+  assert.equal(normalizeSettings({bombGameOver:true,bombLimit:-9}).bombLimit,0);
+  assert.equal(normalizeSettings({bombGameOver:true,bombLimit:35}).bombLimit,20);
+  assert.notEqual(settingsKey(normalizeSettings({bombGameOver:true,bombLimit:0})),settingsKey(DEFAULT_SETTINGS));
+});
+
+test('existing custom leaderboard settings keys are preserved when bomb failure remains default',()=>{
+ const s=normalizeSettings({fruitSpeed:1.4});
+ assert.equal(settingsKey(s),'custom-v1.4:1:0:1.4:1:0:0:50:25');
 });

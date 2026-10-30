@@ -1,3 +1,21 @@
+# Sword Fruit V2.0 — Sword Fruit + Space Dodge
+
+**Quick start:** install Node.js 22+, run `npm install`, `npm test`, `npm run dev`, then open `http://localhost:5173`. Webcam access requires HTTPS or localhost.
+
+**Arcade:** select **⚔ SWORD FRUIT** or **🚀 SPACE DODGE** before starting a round. The current player's name and AI camera are shared. Settings and Top 5 rankings are distinct.
+
+**V1.6 bomb rules:** Settings → Bom nổ kết thúc game, limit 0–20. Limit is the number of hits tolerated; 0 means the first hit ends the round, 3 means the fourth hit ends the round. Failed attempts are not added to Sword Fruit leaderboards. Camera shake lasts 180 ms.
+
+**Space Dodge:** dodge rocks from the right, collect stars +100 points each, three lives by default, 1.2s invulnerability after a hit. Endless continues until all lives are lost; Score Challenge succeeds when the set point threshold is reached.
+
+**Controls:** webcam fingertip aiming (single- and dual-finger), open five fingers to start/resume/retry, fist to brake. Keyboard demo uses WASD/arrows and SPACE to brake.
+
+**Important:** MediaPipe assets are copied from the installed version by `scripts/sync-mediapipe-assets.mjs`. If install is incomplete, run `npm install` with network access first.
+
+**Status:** source and headless tests completed; npm build and browser/webcam QA are pending. See `IMPLEMENTATION_STATUS_V2.0.md`.
+
+---
+
 # Sword Fruit — Word Hunter (Prototype V1.5.0)
 
 Game chém hoa quả trong không gian để thu thập các chữ cái của từ tiếng Anh bằng kiếm điều khiển qua AI webcam.

@@ -55,6 +55,32 @@ function pointingCandidate(p:Vector[],mcp:number,pip:number,dip:number,tip:numbe
   return {tip:p[tip],base:p[mcp],direction,quality,name};
 }
 
+function dominantForwardCandidate(p:Vector[], palm:number, frameH:number):Candidate|null {
+  const checks:[number,number,number,number,'index'|'middle'][]=[
+    [5,6,7,8,'index'],
+    [9,10,11,12,'middle']
+  ];
+  const ringReach=length(vec(p[16],p[13]));
+  const pinkReach=length(vec(p[20],p[17]));
+  const foldedReference=Math.max(1, Math.max(ringReach,pinkReach));
+  let best:Candidate|null=null;
+  for(const [mcp,pip,dip,tip,name] of checks){
+    const tipPoint=p[tip], base=p[mcp], pipPoint=p[pip], dipPoint=p[dip];
+    const reach=length(vec(tipPoint,base));
+    const pipReach=length(vec(pipPoint,base));
+    const distal=length(vec(tipPoint,dipPoint));
+    const direction=normalize(vec(tipPoint,base));
+    if(reach<Math.max(frameH*.06,palm*.60)||distal<Math.max(frameH*.017,palm*.13)||length(direction)<.45) continue;
+    const jointSlack=Math.abs(fingerAngle(p,mcp,pip,tip)-180);
+    const ahead=reach/Math.max(1, foldedReference);
+    const pipRatio=reach/Math.max(1,pipReach);
+    const quality=clamp(.26 + Math.min(.42,ahead*.14) + Math.min(.18, pipRatio*.07) + Math.max(0,.14-jointSlack/260), .25, .64);
+    const candidate={tip:tipPoint,base,direction,quality,name};
+    if(!best||candidate.quality>best.quality) best=candidate;
+  }
+  return best;
+}
+
 export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=480,mirrored=true):GestureSignal {
   if(!validPoints(landmarks) || frameW<=0 || frameH<=0) return {kind:'lost',direction:ZERO,confidence:0};
   const p=landmarks.map(point=>projected(point,frameW,frameH));
@@ -80,7 +106,8 @@ export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=48
   if(r>155&&pink>155)return {kind:'invalid',direction:ZERO,confidence:0};
   const idx=pointingCandidate(p,5,6,7,8,'index',palm,frameH);
   const mid=pointingCandidate(p,9,10,11,12,'middle',palm,frameH);
-  if(!idx&&!mid)return {kind:'invalid',direction:ZERO,confidence:0};
+  const dominant=(!idx&&!mid)?dominantForwardCandidate(p,palm,frameH):null;
+  if(!idx&&!mid&&!dominant)return {kind:'invalid',direction:ZERO,confidence:0};
   let tip:Vector,base:Vector,source:'index'|'middle'|'dual',confidence:number;
   if(idx&&mid){
     const dot=idx.direction.x*mid.direction.x+idx.direction.y*mid.direction.y;
@@ -97,7 +124,7 @@ export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=48
       tip=preferred.tip;base=preferred.base;source=preferred.name;confidence=preferred.quality*.83;
     }
   }else{
-    const preferred=(idx??mid)!;
+    const preferred=(idx??mid??dominant)!;
     tip=preferred.tip;base=preferred.base;source=preferred.name;confidence=preferred.quality*.89;
   }
   const delta=vec(tip,base);

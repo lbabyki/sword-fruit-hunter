@@ -177,3 +177,22 @@ test('successful slice, wrong fruit and bomb emit expected low-latency audio eve
   scene.slice(scene.fruit.find(f=>f.kind==='bomb'));
   assert.deepEqual(sounds,['fruit','fruit','bomb']);
 });
+test('bomb survival rule ends immediately only after exceeding permitted hits and never sends ranking',()=>{
+  const failures=[];
+  const scene=new SwordFruitScene({onStatus:()=>{},onFinish:()=>{throw Error('must not complete')},onFailure:r=>failures.push(r),playSound:()=>{},getSignal:()=>({kind:'point',direction:{x:1,y:0}}),getMode:()=> 'camera',getPlayer:()=> 'QA'});
+  scene.create();scene.startGame(false,{bombGameOver:true,bombLimit:1});
+  scene.addFruit('bomb','');scene.slice(scene.fruit.find(f=>f.kind==='bomb'));
+  assert.equal(scene.phase,'playing');assert.equal(failures.length,0);
+  scene.addFruit('bomb','');scene.slice(scene.fruit.find(f=>f.kind==='bomb'));
+  assert.equal(scene.phase,'failed');assert.equal(failures.length,1);assert.equal(failures[0].bombHits,2);
+  assert.equal(scene.fruit.length,0);
+  scene.update(0,1000);assert.equal(scene.phase,'failed');
+});
+test('zero allowed bombs loses at first explosion, disabled loss rule does not',()=>{
+  const failures=[];
+  const s=new SwordFruitScene({onStatus:()=>{},onFinish:()=>{},onFailure:r=>failures.push(r),playSound:()=>{},getSignal:()=>({kind:'lost'}),getMode:()=> 'keyboard',getPlayer:()=> 'QA'});
+  s.create();s.startGame(false,{bombGameOver:true,bombLimit:0});s.addFruit('bomb','');s.slice(s.fruit.find(f=>f.kind==='bomb'));
+  assert.equal(s.phase,'failed');assert.equal(failures.length,1);
+  s.startGame(false,{bombGameOver:false,bombLimit:0});s.addFruit('bomb','');s.slice(s.fruit.find(f=>f.kind==='bomb'));
+  assert.equal(s.phase,'playing');assert.equal(failures.length,1);
+});

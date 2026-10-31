@@ -240,3 +240,7 @@ Chạy `npm install`, `npm test`, `npm run build`, `npm run dev`. Trong môi tr�
 - Bộ lọc mục tiêu vẫn giữ tính liên tục khi đổi pose trỏ → trỏ + giữa. Thời gian giữ Dash dựa trên timestamp của **các kết quả camera mới**, không đếm lặp 60 FPS render thành thời gian giữ.
 - **Không bảo đảm đúng tất cả góc nhìn bằng một webcam 2D**, đặc biệt khi ngón trỏ bị che hoặc chỉ hoàn toàn vào ống kính. Đây là hạn chế đầu vào/landmark cần QA thực tế.
 - Chạy: `npm install`, `npm test`, `npm run build`, `npm run dev`. Model & asset WASM cần tải/cài thành công trước khi QA.
+
+### V2.3.1 – Sửa xòe 5 ngón không bắt đầu
+
+Nếu webcam đã hiển thị skeleton nhưng nhãn báo “TRỎ + GIỮA · DASH” dù đang xòe toàn bàn tay, nâng cấp V2.3.1. Bộ phân loại nay nhận ngón cái xòe ngang và chịu được lỗi suy luận một vài khung hình. **Nhập tên người chơi trước khi thực hiện cử chỉ bắt đầu.** Xem `RELEASE_NOTES_V2.3.1.md` để kiểm thử. Model MediaPipe không được huấn luyện lại trong bản này; chỉ sửa quy tắc suy luận landmarks.

@@ -206,3 +206,64 @@ test('valid 3D joints recover front-facing index when 2D joints collapse',()=>{
  const signal=classifyHand(p,640,480,true,w);
  assert.equal(signal.kind,'point');assert.ok(signal.target);
 });
+
+
+// Geometry approximating the user's actual screenshot: thumb horizontal,
+// index/middle/ring/pinky separated and extended above the palm.
+function photoLikeOpenHand(){
+  const p=Array.from({length:21},()=>xy(.70,.70));
+  const set=(id,x,y)=>{p[id]=xy(x/384,y/213);};
+  set(0,297,151);
+  for(const [id,x,y] of [
+    [1,260,139],[2,230,132],[3,214,125],[4,195,127],
+    [5,251,82],[6,240,61],[7,231,42],[8,221,23],
+    [9,266,78],[10,261,51],[11,256,24],[12,254,3],
+    [13,284,77],[14,282,54],[15,281,29],[16,280,7],
+    [17,302,78],[18,310,59],[19,319,39],[20,325,23]
+  ])set(id,x,y);
+  return p;
+}
+test('real-photo-like five-finger palm overrides index+middle Dash',()=>{
+  const signal=classifyHand(photoLikeOpenHand(),640,480);
+  assert.equal(signal.kind,'open');
+  assert.equal(signal.target,undefined);
+});
+test('spread thumb is accepted even when its two joint angles are relaxed',()=>{
+  const p=openHand();
+  p[2]=xy(.26,.66);p[3]=xy(.19,.67);p[4]=xy(.10,.49);
+  const signal=classifyHand(p);
+  assert.equal(signal.kind,'open');
+});
+test('four long fingers without a spread thumb are NOT five-finger start pose',()=>{
+  const p=openHand();
+  p[2]=xy(.34,.69);p[3]=xy(.37,.67);p[4]=xy(.34,.64);
+  const signal=classifyHand(p);
+  assert.notEqual(signal.kind,'open');
+  assert.notEqual(signal.kind,'dash');
+});
+test('a two-finger Dash remains Dash, never becomes an open palm',()=>{
+  assert.equal(classifyHand(hand('dual')).kind,'dash');
+});
+test('palm recognition uses clear 2D finger geometry when world joint angles are noisy',()=>{
+  const p=photoLikeOpenHand();
+  const w=p.map(q=>({...q,z:0}));
+  // Unreliable world landmarks: 2D still depicts a visibly open palm.
+  w[14]=xy(.2,.4);w[18]=xy(.9,.8);
+  assert.equal(classifyHand(p,640,480,true,w).kind,'open');
+});
+test('brief spurious Dash frame does not cancel the deliberate five-finger hold',()=>{
+  const gate=new OpenPalmTrigger();
+  assert.equal(gate.update('open',1000),false);
+  assert.equal(gate.update('open',1150),false);
+  assert.equal(gate.update('dash',1190),false);
+  assert.equal(gate.update('open',1230),false);
+  assert.equal(gate.update('open',1430),true);
+  assert.equal(gate.update('open',1550),false);
+});
+test('short open glance followed by persistent Dash cannot start a game',()=>{
+  const gate=new OpenPalmTrigger();
+  assert.equal(gate.update('open',1000),false);
+  for(let t=1040;t<=1520;t+=40) assert.equal(gate.update('dash',t),false);
+  assert.equal(gate.update('open',1600),false);
+  assert.equal(gate.update('open',2025),true);
+});

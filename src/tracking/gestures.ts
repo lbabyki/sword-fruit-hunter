@@ -82,6 +82,41 @@ function otherFingersOpen(p:Vector[],world?:readonly HandPoint[]):boolean {
   return ring&&pinky;
 }
 
+// Use evidence from the *whole palm* before checking the index/middle Dash.
+// MediaPipe's thumb joints are often bent in 2-D even when the thumb is visibly
+// spread sideways. The old all-angles>153 + straight-thumb test failed on that
+// normal five-finger pose and incorrectly classified it as Dash.
+function openPalmExtended(p:Vector[],mcp:number,pip:number,dip:number,tip:number,
+    wrist:number,palm:number,frameH:number,world?:readonly HandPoint[]):boolean {
+  const reach=length(vec(p[tip],p[mcp]));
+  const wristTip=length(vec(p[tip],p[wrist]));
+  const wristPip=length(vec(p[pip],p[wrist]));
+  const straight2d=fingerAngle(p,mcp,pip,tip)>=139 && angle(p[pip],p[dip],p[tip])>=128;
+  const wa=worldAngle(world,mcp,pip,tip);
+  const wd=worldAngle(world,pip,dip,tip);
+  const straight3d=wa!==null&&wd!==null&&wa>=143&&wd>=127;
+  return (straight2d||straight3d)
+    && reach>=Math.max(frameH*.036,palm*.44)
+    && wristTip>=wristPip*1.035;
+}
+function isFullOpenPalm(p:Vector[],palm:number,frameH:number,world?:readonly HandPoint[]):boolean {
+  // All four long fingers must extend. Requiring both ring and pinky prevents
+  // the index+middle pose from accidentally starting/restarting a game.
+  const raised=([
+    [5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]
+  ] as const).every(([mcp,pip,dip,tip])=>
+    openPalmExtended(p,mcp,pip,dip,tip,0,palm,frameH,world));
+  if(!raised)return false;
+  // Thumb is sideways in the user's photo: use spread and separation from the
+  // palm rather than demanding a nearly 180-degree thumb-joint angle.
+  const thumbReach=length(vec(p[4],p[5]));
+  const thumbSeparation=length(vec(p[4],p[9]))-length(vec(p[3],p[9]));
+  const thumbTipSegment=length(vec(p[4],p[3]));
+  return thumbReach>=Math.max(frameH*.028,palm*.57)
+    && thumbSeparation>=palm*.09
+    && thumbTipSegment>=Math.max(frameH*.008,palm*.065);
+}
+
 // Consistent mapping for both Sword Fruit and Space Dodge:
 //   INDEX only -> move to index TIP target
 //   INDEX + MIDDLE -> same index TIP target, one Dash event (Space Dodge only)
@@ -95,9 +130,9 @@ export function classifyHand(landmarks:readonly HandPoint[],frameW=640,frameH=48
   const r=worldAngle(world,13,14,16)??fingerAngle(p,13,14,16);
   const pink=worldAngle(world,17,18,20)??fingerAngle(p,17,18,20);
   const palm=Math.max(1,length(vec(p[5],p[17])));
-  const thumbStraight=angle(p[2],p[3],p[4])>148&&angle(p[1],p[2],p[4])>140;
-  const thumbSpread=length(vec(p[4],p[5]))>Math.max(12,palm*.72);
-  if(i>153&&m>153&&r>153&&pink>153&&thumbStraight&&thumbSpread)
+  // Full open palm has priority over Dash, with soft thumb geometry and both
+  // camera-space and world-space evidence to handle tilted hands.
+  if(isFullOpenPalm(p,palm,frameH,world))
     return {kind:'open',direction:ZERO,confidence:1};
   const idx=indexCandidate(p,palm,frameH,world);
   const middle=middleRaised(p,palm,frameH,world);
@@ -162,22 +197,32 @@ export class GestureSmoother {
 // Still deliberately debounced: spreading 5 fingers starts/resumes/restarts.
 export class OpenPalmTrigger {
   private openSince:number|null=null;
+  private lastOpenAt:number|null=null;
   private releasedSince:number|null=null;
   private armed=true;
   private lastAction=-Infinity;
-  private holdMs:number;private releaseMs:number;private cooldownMs:number;
-  constructor(holdMs=420,releaseMs=240,cooldownMs=900){this.holdMs=holdMs;this.releaseMs=releaseMs;this.cooldownMs=cooldownMs;}
-  reset(){this.openSince=null;this.releasedSince=null;this.armed=true;this.lastAction=-Infinity;}
+  private holdMs:number;private releaseMs:number;private cooldownMs:number;private graceMs:number;
+  constructor(holdMs=420,releaseMs=240,cooldownMs=900,graceMs=115){
+    this.holdMs=holdMs;this.releaseMs=releaseMs;this.cooldownMs=cooldownMs;this.graceMs=graceMs;
+  }
+  reset(){this.openSince=null;this.lastOpenAt=null;this.releasedSince=null;this.armed=true;this.lastAction=-Infinity;}
   update(kind:GestureKind,now:number):boolean {
     if(kind!=='open'){
-      this.openSince=null;
+      // Record the first non-open frame even during grace. Otherwise two
+      // consecutive non-open observations >releaseMs apart wouldn't re-arm.
       if(this.releasedSince===null)this.releasedSince=now;
       if(now-this.releasedSince>=this.releaseMs)this.armed=true;
+      // A 30-FPS tracker can occasionally report an 'invalid'/'dash' frame
+      // inside a held open palm. Preserve the hold through a brief dropout,
+      // but NEVER trigger an action on a non-open frame.
+      if(this.openSince!==null&&this.lastOpenAt!==null&&now-this.lastOpenAt<=this.graceMs)return false;
+      this.openSince=null;this.lastOpenAt=null;
       return false;
     }
     this.releasedSince=null;
     if(this.openSince===null)this.openSince=now;
-    if(!this.armed || now-this.openSince<this.holdMs || now-this.lastAction<this.cooldownMs)return false;
+    this.lastOpenAt=now;
+    if(!this.armed||now-this.openSince<this.holdMs||now-this.lastAction<this.cooldownMs)return false;
     this.armed=false;this.lastAction=now;return true;
   }
 }

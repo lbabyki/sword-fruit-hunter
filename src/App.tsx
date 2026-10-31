@@ -239,7 +239,7 @@ export default function App(){
                <button className="primary-btn" onClick={restart} disabled={!canStart}>⚔ &nbsp; {phase==='finished'||phase==='failed'?'CHƠI LƯỢT MỚI':'BẮT ĐẦU CHƠI'}</button>}
               {isActive&&<button className="ghost-btn" onClick={()=>{if(gameType==='fruit')sceneRef.current?.startGame(competition,settingsRef.current);else spaceSceneRef.current?.startGame(competition,spaceSettingsRef.current);setLastResult(null);setFailureResult(null);setFinishedResult(null);setLastSpaceResult(null);}}>↻ CHƠI LẠI</button>}
             </div>
-            <label className="player-inline"><span>TÊN NGƯỜI CHƠI</span><input aria-label="Tên người chơi" value={player} maxLength={24} onChange={e=>setPlayer(e.target.value)} placeholder="Nhập tên người chơi..." disabled={isActive}/></label>
+            <label className="player-inline"><span>TÊN NGƯỜI CHƠI</span><input aria-label="Tên người chơi" value={player} maxLength={24} onChange={e=>setPlayer(e.target.value)} placeholder="Nhập tên người chơi..." disabled={isActive}/>{!isActive&&!player.trim()&&<small className="player-required-hint">Nhập tên để xòe 5 ngón bắt đầu</small>}</label>
             <div className="control-legend"><span className="circle-status"/>{mode==='camera'?'NGÓN TRỎ · LOW LATENCY':'DEMO · WASD / PHÍM MŨI TÊN'}</div>
           </div>
           <div className="settings-grid">
